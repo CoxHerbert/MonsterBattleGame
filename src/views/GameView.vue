@@ -26,11 +26,12 @@
 
       <div class="actions">
         <button @click="togglePause">{{ paused ? '继续' : '暂停' }}</button>
-        <button @click="restart">重新开始</button>
         <button @click="toggleAutoFire">{{ autoFire ? '自动攻击：开' : '自动攻击：关' }}</button>
         <button @click="toggleFullscreen">{{ isAnyFullscreen ? '退出全屏' : '全屏' }}</button>
+        <button @click="toggleSettings">{{ settingsOpen ? '关闭设置' : '设置' }}</button>
+      </div>
 
-        <!-- 音频控制 -->
+      <div v-if="settingsOpen" class="settings-panel">
         <div class="audio">
           <button @click="toggleMute" :title="audio.muted ? '取消静音' : '静音'">
             {{ audio.muted ? '🔇' : '🔊' }}
@@ -49,13 +50,8 @@
             {{ audio.bgmOn ? '🎵 BGM 开' : '🎵 BGM 关' }}
           </button>
         </div>
-
-        <!-- 地图控制 -->
-        <div class="map-ctrl">
-          <button @click="zoomOutMap" title="缩小 [">➖</button>
-          <button @click="toggleMapOpen" title="显示/隐藏地图 (M)">🗺️</button>
-          <button @click="zoomInMap" title="放大 ]">➕</button>
-        </div>
+        <button @click="toggleMapOpen">{{ minimap.open ? '雷达：开' : '雷达：关' }}</button>
+        <button @click="restart">重新开始</button>
       </div>
 
       <div class="tips">
@@ -155,6 +151,9 @@ export default {
 
       // auto fire
       autoFire: false,
+
+      // settings
+      settingsOpen: false,
 
       // world / infinite
       worldSeed: Math.floor(Math.random()*2**31)>>>0,
@@ -592,6 +591,10 @@ export default {
     restart() { this.reset(); },
     togglePause() { this.paused = !this.paused; },
     toggleAutoFire() { this.autoFire = !this.autoFire; },
+    toggleSettings() {
+      this.settingsOpen = !this.settingsOpen;
+      this.paused = this.settingsOpen;
+    },
 
     /* ===== Input ===== */
     async onKeyDown(e) {
@@ -977,8 +980,8 @@ export default {
       const mm = this.minimap;
       const mw = mm.open ? mm.openW : mm.closedW;
       const mh = mm.open ? mm.openH : mm.closedH;
-      const x = mm.margin;           // 左下角
-      const y = h - mh - mm.margin;
+      const x = mm.margin;           // 左上角
+      const y = mm.margin;
       return { x, y, w: mw, h: mh };
     },
     drawMinimap() {
@@ -1153,9 +1156,12 @@ export default {
 .actions{ pointer-events:auto; position:absolute; right:10px; top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 .actions button{ background:#1f2937; color:#e5e7eb; border:0; padding:6px 10px; border-radius:10px; cursor:pointer; }
 .actions button:hover{ filter:brightness(1.1); }
-.actions .audio{ display:flex; align-items:center; gap:6px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); padding:4px 6px; border-radius:10px; }
-.actions .audio .vol{ width:110px; height:6px; accent-color:#9cf; }
-.actions .map-ctrl{ display:flex; gap:6px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); padding:4px 6px; border-radius:10px; }
+
+.settings-panel{ pointer-events:auto; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:rgba(31,41,55,.95); color:#e5e7eb; padding:20px; border-radius:12px; display:flex; flex-direction:column; gap:12px; align-items:center; }
+.settings-panel button{ background:#1f2937; color:#e5e7eb; border:0; padding:6px 10px; border-radius:10px; cursor:pointer; }
+.settings-panel button:hover{ filter:brightness(1.1); }
+.settings-panel .audio{ display:flex; align-items:center; gap:6px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); padding:4px 6px; border-radius:10px; }
+.settings-panel .audio .vol{ width:110px; height:6px; accent-color:#9cf; }
 
 /* 触摸层（仅触屏渲染） */
 .touch-layer{ position:absolute; inset:0; z-index:1; pointer-events:auto; }
