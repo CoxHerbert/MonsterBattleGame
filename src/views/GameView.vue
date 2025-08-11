@@ -29,10 +29,9 @@
         <button @click="togglePause">{{ paused ? '继续' : '暂停' }}</button>
         <button @click="toggleAutoFire">{{ autoFire ? '自动攻击：开' : '自动攻击：关' }}</button>
         <button @click="toggleFullscreen">{{ isAnyFullscreen ? '退出全屏' : '全屏' }}</button>
-        <button @click="toggleSettings">{{ settingsOpen ? '关闭设置' : '设置' }}</button>
+        <button @click="openSettings">设置</button>
       </div>
-
-      <SettingsPanel v-if="settingsOpen" :showRestart="true" @restart="restart" />
+      <SettingsPanel v-if="settingsOpen" :showRestart="true" @restart="restart" @close="closeSettings" />
 
       <div class="tips">
         键鼠：WASD + 鼠标 ｜ 手柄：左摇杆移动、右摇杆瞄准、RT/A 射击 ｜ 触屏：左下移动，右下瞄准（轻推触发自动瞄准）。
@@ -65,9 +64,6 @@
 <script>
 import SettingsPanel from '../components/SettingsPanel.vue'
 const LS_KEY = 'zombie-best-score-v1';
-const VOL_KEY = 'zombie-volume';
-const MUTE_KEY = 'zombie-muted';
-const BGM_KEY = 'zombie-bgm';
 
 /* ===== 内置SVG精灵（可替换为你的 PNG/SVG 地址） ===== */
 const PLAYER_SVG = encodeURIComponent(`
@@ -228,14 +224,10 @@ export default {
       (navigator.maxTouchPoints > 0);
 
     // audio prefs
-    const v = Number(localStorage.getItem(VOL_KEY));
-    if (!Number.isNaN(v) && v >= 0 && v <= 1) this.audio.volume = v;
-    this.audio.muted = localStorage.getItem(MUTE_KEY) === '1';
-    const bgmSaved = localStorage.getItem(BGM_KEY);
-    if (bgmSaved === '0' || bgmSaved === '1') this.audio.bgmOn = (bgmSaved === '1');
-    this.$store.commit('setVolume', this.audio.volume);
-    this.$store.commit('setMuted', this.audio.muted);
-    this.$store.commit('setBgmOn', this.audio.bgmOn);
+    this.audio.volume = this.settings.volume;
+    this.audio.muted = this.settings.muted;
+    this.audio.bgmOn = this.settings.bgmOn;
+    this.setMasterGain(this.audio.volume);
 
     this.minimap.open = this.settings.minimapOpen;
     this.minimap.size = this.settings.minimapSize;
@@ -599,9 +591,13 @@ export default {
     },
     togglePause() { this.paused = !this.paused; },
     toggleAutoFire() { this.autoFire = !this.autoFire; },
-    toggleSettings() {
-      this.settingsOpen = !this.settingsOpen;
-      this.paused = this.settingsOpen;
+    openSettings() {
+      this.settingsOpen = true;
+      this.paused = true;
+    },
+    closeSettings() {
+      this.settingsOpen = false;
+      this.paused = false;
     },
 
     /* ===== Input ===== */

@@ -29,6 +29,7 @@
       </label>
     </div>
     <button v-if="showRestart" @click="$emit('restart')">重新开始</button>
+    <button @click="$emit('close')">关闭</button>
   </div>
 </template>
 

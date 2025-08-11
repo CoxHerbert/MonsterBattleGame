@@ -3,9 +3,9 @@
     <h1 class="logo">Monster Battle</h1>
     <div class="buttons">
       <button @click="start">开始游戏</button>
-      <button @click="toggleSettings">{{ settingsOpen ? '关闭设置' : '设置' }}</button>
+      <button @click="openSettings">设置</button>
     </div>
-    <SettingsPanel v-if="settingsOpen" />
+    <SettingsPanel v-if="settingsOpen" @close="settingsOpen=false" />
   </div>
 </template>
 
@@ -20,7 +20,7 @@ export default {
   },
   methods: {
     start() { this.$router.push('/game') },
-    toggleSettings() { this.settingsOpen = !this.settingsOpen }
+    openSettings() { this.settingsOpen = true }
   }
 }
 </script>
