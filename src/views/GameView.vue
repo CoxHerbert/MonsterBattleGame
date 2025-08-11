@@ -960,12 +960,12 @@ export default {
 
           // 装饰在障碍下方
           for (const d of ch.decor) { ctx.beginPath(); ctx.fillStyle = d.color; ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2); ctx.fill(); }
-
-          // 障碍
-          ctx.fillStyle = '#1f2430'; ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-          for (const o of ch.obstacles) { this.roundRect(ctx, o.x, o.y, o.w, o.h, o.r); ctx.fill(); ctx.stroke(); }
         }
       }
+
+      // 障碍统一在所有地块绘制完后再绘制，避免相邻地块覆盖
+      ctx.fillStyle = '#1f2430'; ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      for (const o of this.visibleObstacles) { this.roundRect(ctx, o.x, o.y, o.w, o.h, o.r); ctx.fill(); ctx.stroke(); }
 
       // 世界网格
       ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
