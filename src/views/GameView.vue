@@ -46,11 +46,20 @@
             @input="onVolumeInput($event)"
             :title="'音量 ' + Math.round(audio.volume*100) + '%'"
           />
-          <button @click="toggleBgm" :title="audio.bgmOn ? '关闭BGM' : '开启BGM'">
+        <button @click="toggleBgm" :title="audio.bgmOn ? '关闭BGM' : '开启BGM'">
             {{ audio.bgmOn ? '🎵 BGM 开' : '🎵 BGM 关' }}
           </button>
         </div>
         <button @click="toggleMapOpen">{{ minimap.open ? '雷达：开' : '雷达：关' }}</button>
+        <div class="map-size">
+          <label>地图大小：
+            <select v-model="minimap.size" @change="updateMinimapSize">
+              <option value="small">小</option>
+              <option value="medium">中</option>
+              <option value="large">大</option>
+            </select>
+          </label>
+        </div>
         <button @click="restart">重新开始</button>
       </div>
 
@@ -201,6 +210,7 @@ export default {
         closedW: 220, closedH: 220,
         openW: 360, openH: 280,
         margin: 10,
+        size: 'medium',
         // 运行时缓存的屏幕矩形，用于滚轮命中检测
         _rect: { x: 0, y: 0, w: 0, h: 0 },
       },
@@ -574,6 +584,17 @@ export default {
       this.canvas.style.width = styleWidth + 'px';
       this.canvas.style.height = styleHeight + 'px';
       this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      this.updateMinimapSize();
+    },
+    updateMinimapSize() {
+      const mm = this.minimap;
+      const base = Math.min(window.innerWidth, window.innerHeight);
+      let factor = 0.22;
+      if (mm.size === 'small') factor = 0.15;
+      else if (mm.size === 'large') factor = 0.3;
+      mm.closedW = mm.closedH = Math.floor(base * factor);
+      mm.openW = Math.floor(mm.closedW * 1.6);
+      mm.openH = Math.floor(mm.closedH * 1.3);
     },
     reset() {
       this.player.x = 0; this.player.y = 0;
@@ -588,7 +609,10 @@ export default {
       this.autoAim.highlight = null;
       this.chunks.clear(); this.visibleObstacles = [];
     },
-    restart() { this.reset(); },
+    restart() {
+      this.reset();
+      this.settingsOpen = false;
+    },
     togglePause() { this.paused = !this.paused; },
     toggleAutoFire() { this.autoFire = !this.autoFire; },
     toggleSettings() {
