@@ -785,6 +785,14 @@ export default {
         if (this.touch.right.mag > 0.10) { aimDir = Math.atan2(this.touch.right.vy, this.touch.right.vx); haveAim = true; }
         else if (this.autoAim.enabled) { const target = this.findAutoAimTarget(this.autoAim.range); if (target) { aimDir = Math.atan2(target.y - this.player.y, target.x - this.player.x); haveAim = true; this.autoAim.highlight = target; } }
       }
+      if (this.autoFire) {
+        const target = this.findAutoAimTarget(Infinity);
+        if (target) {
+          aimDir = Math.atan2(target.y - this.player.y, target.x - this.player.x);
+          haveAim = true;
+          this.autoAim.highlight = target;
+        }
+      }
       if (haveAim) this.player.dir = aimDir;
 
       // 开火
