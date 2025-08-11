@@ -148,7 +148,7 @@ export default {
 
       // spawn
       spawnTimer: 0, spawnInterval: 1.0, wave: 1,
-      bossTimer: 30, bossInterval: 30,
+      bossTimer: 180, bossInterval: 180,
 
       // score
       score: 0, bestScore: 0, combo: 1, comboTimer: 0,
@@ -821,6 +821,12 @@ export default {
         const b = this.bullets[i];
         b.x += Math.cos(b.dir) * b.speed * dt;
         b.y += Math.sin(b.dir) * b.speed * dt;
+        if (b.homing) {
+          const tDir = Math.atan2(this.player.y - b.y, this.player.x - b.x);
+          const diff = ((tDir - b.dir + Math.PI) % (Math.PI * 2)) - Math.PI;
+          const maxTurn = 2.5 * dt;
+          b.dir += this.clamp(diff, -maxTurn, maxTurn);
+        }
         b.life -= dt;
         if (this.pointHitObstacle(b.x, b.y)) {
           if (b.bounce && b.bounce > 0) {
@@ -883,7 +889,18 @@ export default {
           const dist = Math.hypot(this.player.x - z.x, this.player.y - z.y);
           if (dist < 600 && z.shotCd <= 0) {
             const dir = Math.atan2(this.player.y - z.y, this.player.x - z.x);
-            this.bullets.push({ x: z.x, y: z.y, dir, speed: 350, dmg: z.dmg * 0.6, life: 2.5, from: 'enemy' });
+            const bullet = { x: z.x, y: z.y, dir, speed: 350, dmg: z.dmg * 0.6, life: 2.5, from: 'enemy' };
+            if (z.pooper) {
+              z.shotCount = (z.shotCount || 0) + 1;
+              if (z.shotCount % 3 === 0) {
+                bullet.speed = 280;
+                bullet.color = '#8b4513';
+                bullet.homing = true;
+              } else {
+                bullet.color = '#a0522d';
+              }
+            }
+            this.bullets.push(bullet);
             z.shotCd = 2 + Math.random();
           }
         }
@@ -962,18 +979,28 @@ export default {
 
       // 子弹
       for (const b of this.bullets) {
+        const color = b.color ? b.color : (b.burn ? '#ffb347' : (b.from === 'enemy' ? '#f99' : '#9cf'));
+        const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 3);
+        grad.addColorStop(0, '#fff');
+        grad.addColorStop(1, color);
+        ctx.globalAlpha = (b.pierce && b.pierce > 0) ? 0.55 : 1;
+        ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.fillStyle = b.from === 'enemy' ? '#f99' : '#9cf';
         ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
         ctx.fill();
+        ctx.globalAlpha = 1;
       }
 
       // 僵尸（贴图 + 血条 + 数值HP）
       for (const z of this.zombies) {
         const img = z.elite ? this.assets.elite : this.assets.zombie;
         const rot = Math.atan2(this.player.y - z.y, this.player.x - z.x);
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.35)';
+        ctx.shadowBlur = 6;
         const drawn = this.drawSprite(img, z.x, z.y, z.r, rot);
-        if (!drawn) { ctx.save(); ctx.translate(z.x, z.y); ctx.rotate(rot); ctx.fillStyle = z.color; ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+        if (!drawn) { ctx.translate(z.x, z.y); ctx.rotate(rot); ctx.fillStyle = z.color; ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.fill(); }
+        ctx.restore();
 
         const bw = z.r * 2, bh = 4, bx = z.x - z.r, by = z.y - z.r - 12;
         ctx.fillStyle = '#222'; ctx.fillRect(bx, by, bw, bh);
@@ -1186,8 +1213,9 @@ export default {
         const color = elite ? `hsl(${hue} 80% 55%)` : `hsl(${hue} 60% 55%)`;
         const ghost = Math.random() < 0.1;
         const invuln = Math.random() < 0.1 ? 2.0 : 0;
-        const ranged = Math.random() < 0.1;
-        this.zombies.push({ x, y, r: zr, hp, maxHp: hp, speed, dmg, color, elite, dashing:false, dashCd: elite ? (1 + Math.random() * 1.5) : 9999, dashTime:0, ghost, invuln, ranged, shotCd: ranged ? 1.5 : 0, burnTime:0, burnDps:0, boss:false });
+        const pooper = Math.random() < 0.05;
+        const ranged = pooper || Math.random() < 0.1;
+        this.zombies.push({ x, y, r: zr, hp, maxHp: hp, speed, dmg, color, elite, dashing:false, dashCd: elite ? (1 + Math.random() * 1.5) : 9999, dashTime:0, ghost, invuln, ranged, pooper, shotCd: ranged ? 1.5 : 0, shotCount:0, burnTime:0, burnDps:0, boss:false });
         return;
       }
     },
