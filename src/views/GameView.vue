@@ -5,14 +5,15 @@
     <!-- HUD -->
     <div class="hud">
       <div class="stats">
-        <span>Score: {{ score }}</span>
-        <span>Best: {{ bestScore }}</span>
-        <span>Combo: {{ combo }}x</span>
-        <span>HP: {{ Math.max(0, Math.ceil(player.hp)) }}</span>
-        <span>Wave: {{ wave }}</span>
-        <span v-if="paused">⏸ Paused</span>
+        <span>分数: {{ score }}</span>
+        <span>最高: {{ bestScore }}</span>
+        <span>连击: {{ combo }}x</span>
+        <span>生命: {{ Math.max(0, Math.ceil(player.hp)) }}</span>
+        <span>波数: {{ wave }}</span>
+        <span>首领: {{ Math.ceil(bossTimer) }}秒</span>
+        <span v-if="paused">⏸ 已暂停</span>
         <span v-if="gamepad.name" class="pad">🎮 {{ gamepad.name }}</span>
-        <span v-if="autoAim.enabled && isTouchDevice" class="pad">🎯 AimAssist</span>
+        <span v-if="autoAim.enabled && isTouchDevice" class="pad">🎯 辅助瞄准</span>
         <span v-if="!audio.ready" class="pad">🔇 轻点屏幕以启用声音</span>
         <span v-if="!assets.ready" class="pad">🖼️ 贴图加载中…</span>
       </div>
@@ -20,46 +21,27 @@
       <div class="buffs" v-if="activeBuffs.length">
         <div class="buff" v-for="b in activeBuffs" :key="b.kind">
           <span class="tag">{{ b.kind }}</span>
-          <span class="time">{{ b.left.toFixed(1) }}s</span>
+          <span class="time">{{ b.left.toFixed(1) }}秒</span>
         </div>
       </div>
 
       <div class="actions">
         <button @click="togglePause">{{ paused ? '继续' : '暂停' }}</button>
-        <button @click="restart">重新开始</button>
+        <button @click="toggleAutoFire">{{ autoFire ? '自动攻击：开' : '自动攻击：关' }}</button>
         <button @click="toggleFullscreen">{{ isAnyFullscreen ? '退出全屏' : '全屏' }}</button>
-
-        <!-- 音频控制 -->
-        <div class="audio">
-          <button @click="toggleMute" :title="audio.muted ? '取消静音' : '静音'">
-            {{ audio.muted ? '🔇' : '🔊' }}
-          </button>
-          <input
-            class="vol"
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            :value="audio.volume"
-            @input="onVolumeInput($event)"
-            :title="'音量 ' + Math.round(audio.volume*100) + '%'"
-          />
-          <button @click="toggleBgm" :title="audio.bgmOn ? '关闭BGM' : '开启BGM'">
-            {{ audio.bgmOn ? '🎵 BGM 开' : '🎵 BGM 关' }}
-          </button>
-        </div>
-
-        <!-- 地图控制 -->
-        <div class="map-ctrl">
-          <button @click="zoomOutMap" title="缩小 [">➖</button>
-          <button @click="toggleMapOpen" title="显示/隐藏地图 (M)">🗺️</button>
-          <button @click="zoomInMap" title="放大 ]">➕</button>
-        </div>
+        <button @click="openSettings">设置</button>
       </div>
+      <SettingsPanel v-if="settingsOpen" :showRestart="true" :allowSave="true" @save="saveAndExit" @restart="restart" @close="closeSettings" />
 
       <div class="tips">
         键鼠：WASD + 鼠标 ｜ 手柄：左摇杆移动、右摇杆瞄准、RT/A 射击 ｜ 触屏：左下移动，右下瞄准（轻推触发自动瞄准）。
       </div>
+    </div>
+
+    <div v-if="gameOver" class="game-over">
+      <p>游戏结束，分数 {{ score }}</p>
+      <button @click="restart">重新开始</button>
+      <button @click="exitToHome">回到首页</button>
     </div>
 
     <!-- 触控层（仅触屏设备渲染） -->
@@ -86,10 +68,8 @@
 </template>
 
 <script>
+import SettingsPanel from '../components/SettingsPanel.vue'
 const LS_KEY = 'zombie-best-score-v1';
-const VOL_KEY = 'zombie-volume';
-const MUTE_KEY = 'zombie-muted';
-const BGM_KEY = 'zombie-bgm';
 
 /* ===== 内置SVG精灵（可替换为你的 PNG/SVG 地址） ===== */
 const PLAYER_SVG = encodeURIComponent(`
@@ -123,6 +103,7 @@ function seedFrom(cx, cy, worldSeed){const s=((cx*73856093)^(cy*19349663)^worldS
 
 export default {
   name: 'ZombieGame',
+  components: { SettingsPanel },
   data() {
     return {
       // DOM
@@ -130,7 +111,7 @@ export default {
       dpr: Math.min(window.devicePixelRatio || 1, 2),
 
       // runtime
-      running: false, paused: false, lastTime: 0, accTime: 0,
+      running: false, paused: false, gameOver: false, lastTime: 0, accTime: 0,
 
       // fullscreen
       isNativeFullscreen: false, isPseudoFullscreen: false,
@@ -152,6 +133,12 @@ export default {
       // auto-aim
       autoAim: { enabled:true, range:260, minStickToFire:0.08, weakThreshold:0.25, highlight:null },
 
+      // auto fire
+      autoFire: false,
+
+      // settings
+      settingsOpen: false,
+
       // world / infinite
       worldSeed: Math.floor(Math.random()*2**31)>>>0,
       chunkSize: 512,
@@ -163,12 +150,13 @@ export default {
 
       // spawn
       spawnTimer: 0, spawnInterval: 1.0, wave: 1,
+      bossTimer: 180, bossInterval: 180,
 
       // score
       score: 0, bestScore: 0, combo: 1, comboTimer: 0,
 
       // buffs
-      buff: { speed: 0, spread: 0 },
+      buff: { speed: 0, spread: 0, burn: 0, pierce: 0, bounce: 0, split: 0 },
 
       // device
       isTouchDevice: false,
@@ -198,19 +186,41 @@ export default {
         closedW: 220, closedH: 220,
         openW: 360, openH: 280,
         margin: 10,
+        size: 'medium',
         // 运行时缓存的屏幕矩形，用于滚轮命中检测
         _rect: { x: 0, y: 0, w: 0, h: 0 },
       },
     };
   },
   computed: {
+    settings() { return this.$store.state.settings; },
     activeBuffs() {
       const list = [];
-      if (this.buff.speed > 0)  list.push({ kind: '⚡Speed', left: this.buff.speed });
-      if (this.buff.spread > 0) list.push({ kind: '🔱Spread', left: this.buff.spread });
+      if (this.buff.speed > 0)  list.push({ kind: '⚡加速', left: this.buff.speed });
+      if (this.buff.spread > 0) list.push({ kind: '🔱散射', left: this.buff.spread });
+      if (this.buff.burn > 0)   list.push({ kind: '🔥燃烧', left: this.buff.burn });
+      if (this.buff.pierce > 0) list.push({ kind: '🎯穿透', left: this.buff.pierce });
+      if (this.buff.bounce > 0) list.push({ kind: '↩️弹射', left: this.buff.bounce });
+      if (this.buff.split > 0)  list.push({ kind: '🔀分裂', left: this.buff.split });
       return list;
     },
     isAnyFullscreen() { return this.isNativeFullscreen || this.isPseudoFullscreen; }
+  },
+  watch: {
+    'settings.volume'(v) {
+      this.audio.volume = v;
+      this.setMasterGain(v);
+    },
+    'settings.muted'(v) {
+      this.audio.muted = v;
+      this.setMasterGain(this.audio.volume);
+    },
+    'settings.bgmOn'(v) {
+      this.audio.bgmOn = v;
+      if (v) this.startBgm(); else this.stopBgm();
+    },
+    'settings.minimapOpen'(v) { this.minimap.open = v; },
+    'settings.minimapSize'(v) { this.minimap.size = v; this.updateMinimapSize(); }
   },
   mounted() {
     // touch check
@@ -220,11 +230,14 @@ export default {
       (navigator.maxTouchPoints > 0);
 
     // audio prefs
-    const v = Number(localStorage.getItem(VOL_KEY));
-    if (!Number.isNaN(v) && v >= 0 && v <= 1) this.audio.volume = v;
-    this.audio.muted = localStorage.getItem(MUTE_KEY) === '1';
-    const bgmSaved = localStorage.getItem(BGM_KEY);
-    if (bgmSaved === '0' || bgmSaved === '1') this.audio.bgmOn = (bgmSaved === '1');
+    this.audio.volume = this.settings.volume;
+    this.audio.muted = this.settings.muted;
+    this.audio.bgmOn = this.settings.bgmOn;
+    this.setMasterGain(this.audio.volume);
+
+    this.minimap.open = this.settings.minimapOpen;
+    this.minimap.size = this.settings.minimapSize;
+    this.updateMinimapSize();
 
     this.bestScore = Number(localStorage.getItem(LS_KEY) || 0);
 
@@ -247,6 +260,8 @@ export default {
     document.addEventListener('visibilitychange', this.onVisibilityChange);
 
     this.reset();
+    const saveId = this.$route.query.save;
+    if (saveId) this.loadSave(saveId);
 
     // load sprites & run
     this.loadSprites().then(() => {
@@ -370,25 +385,6 @@ export default {
       if (!this.audio.master) return;
       const target = this.audio.muted ? 0 : vol;
       this.audio.master.gain.setTargetAtTime(target, this.audio.ctx.currentTime, 0.015);
-    },
-    onVolumeInput(e) {
-      const v = Math.max(0, Math.min(1, parseFloat(e.target.value)));
-      this.audio.volume = Number.isFinite(v) ? v : 0.8;
-      localStorage.setItem(VOL_KEY, String(this.audio.volume));
-      this.setMasterGain(this.audio.volume);
-    },
-    async toggleMute() {
-      await this.ensureAudio();
-      this.audio.muted = !this.audio.muted;
-      localStorage.setItem(MUTE_KEY, this.audio.muted ? '1' : '0');
-      this.setMasterGain(this.audio.volume);
-    },
-    async toggleBgm() {
-      await this.ensureAudio();
-      this.audio.bgmOn = !this.audio.bgmOn;
-      localStorage.setItem(BGM_KEY, this.audio.bgmOn ? '1' : '0');
-      if (this.audio.bgmOn) this.startBgm();
-      else this.stopBgm();
     },
     async onVisibilityChange() {
       if (!this.audio.ctx) return;
@@ -571,6 +567,17 @@ export default {
       this.canvas.style.width = styleWidth + 'px';
       this.canvas.style.height = styleHeight + 'px';
       this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      this.updateMinimapSize();
+    },
+    updateMinimapSize() {
+      const mm = this.minimap;
+      const base = Math.min(window.innerWidth, window.innerHeight);
+      let factor = 0.22;
+      if (mm.size === 'small') factor = 0.15;
+      else if (mm.size === 'large') factor = 0.3;
+      mm.closedW = mm.closedH = Math.floor(base * factor);
+      mm.openW = Math.floor(mm.closedW * 1.6);
+      mm.openH = Math.floor(mm.closedH * 1.3);
     },
     reset() {
       this.player.x = 0; this.player.y = 0;
@@ -578,15 +585,63 @@ export default {
       this.score = 0; this.combo = 1; this.comboTimer = 0;
       this.wave = 1; this.spawnInterval = 1.0; this.spawnTimer = 0;
       this.bullets = []; this.zombies = []; this.particles = []; this.drops = [];
-      this.buff.speed = 0; this.buff.spread = 0;
-      this.paused = false; this.lastTime = performance.now();
+      this.buff.speed = 0; this.buff.spread = 0; this.buff.burn = 0; this.buff.pierce = 0; this.buff.bounce = 0; this.buff.split = 0;
+      this.bossTimer = this.bossInterval;
+      this.paused = false; this.gameOver = false; this.lastTime = performance.now();
       this.touch.left.active = false; this.touch.left.id = -1;
       this.touch.right.active = false; this.touch.right.id = -1;
       this.autoAim.highlight = null;
       this.chunks.clear(); this.visibleObstacles = [];
     },
-    restart() { this.reset(); },
+    restart() {
+      this.reset();
+      this.settingsOpen = false;
+    },
+    saveAndExit() {
+      const saves = JSON.parse(localStorage.getItem('saves') || '[]');
+      const id = Date.now();
+      saves.push({
+        id,
+        state: {
+          player: { x: this.player.x, y: this.player.y, hp: this.player.hp },
+          wave: this.wave,
+          score: this.score,
+          worldSeed: this.worldSeed,
+          bossTimer: this.bossTimer
+        },
+        time: Date.now()
+      });
+      localStorage.setItem('saves', JSON.stringify(saves));
+      this.$router.push('/');
+    },
+    loadSave(id) {
+      const saves = JSON.parse(localStorage.getItem('saves') || '[]');
+      const s = saves.find(s => String(s.id) === String(id));
+      if (s) {
+        Object.assign(this.player, s.state.player);
+        this.wave = s.state.wave;
+        this.score = s.state.score;
+        this.worldSeed = s.state.worldSeed;
+        this.bossTimer = s.state.bossTimer;
+      }
+    },
+    onGameOver() {
+      this.gameOver = true;
+      const scores = JSON.parse(localStorage.getItem('scores') || '[]');
+      scores.push({ score: this.score, time: Date.now() });
+      localStorage.setItem('scores', JSON.stringify(scores));
+    },
+    exitToHome() { this.$router.push('/'); },
     togglePause() { this.paused = !this.paused; },
+    toggleAutoFire() { this.autoFire = !this.autoFire; },
+    openSettings() {
+      this.settingsOpen = true;
+      this.paused = true;
+    },
+    closeSettings() {
+      this.settingsOpen = false;
+      this.paused = false;
+    },
 
     /* ===== Input ===== */
     async onKeyDown(e) {
@@ -743,8 +798,9 @@ export default {
       if (this.gamepad.connected) this.pollGamepad();
       if (this.gp.pause) { this.togglePause(); this.gp.pause = false; }
 
-      if (!this.paused && this.player.hp > 0) { this.update(dt); this.draw(); }
-      else { this.draw(); }
+      if (!this.paused && this.player.hp > 0) { this.update(dt); }
+      if (this.player.hp <= 0 && !this.gameOver) this.onGameOver();
+      this.draw();
 
       requestAnimationFrame(this.loop);
     },
@@ -758,8 +814,12 @@ export default {
       this.refreshVisibleObstacles(camX, camY, w, h);
 
       // buffs
-      if (this.buff.speed > 0)  this.buff.speed  = Math.max(0, this.buff.speed  - dt);
+      if (this.buff.speed  > 0) this.buff.speed  = Math.max(0, this.buff.speed  - dt);
       if (this.buff.spread > 0) this.buff.spread = Math.max(0, this.buff.spread - dt);
+      if (this.buff.burn   > 0) this.buff.burn   = Math.max(0, this.buff.burn   - dt);
+      if (this.buff.pierce > 0) this.buff.pierce = Math.max(0, this.buff.pierce - dt);
+      if (this.buff.bounce > 0) this.buff.bounce = Math.max(0, this.buff.bounce - dt);
+      if (this.buff.split  > 0) this.buff.split  = Math.max(0, this.buff.split  - dt);
       this.player.speed = this.player.baseSpeed * (this.buff.speed > 0 ? 1.5 : 1.0);
 
       // 移动
@@ -780,20 +840,56 @@ export default {
         if (this.touch.right.mag > 0.10) { aimDir = Math.atan2(this.touch.right.vy, this.touch.right.vx); haveAim = true; }
         else if (this.autoAim.enabled) { const target = this.findAutoAimTarget(this.autoAim.range); if (target) { aimDir = Math.atan2(target.y - this.player.y, target.x - this.player.x); haveAim = true; this.autoAim.highlight = target; } }
       }
+      if (this.autoFire) {
+        const target = this.findAutoAimTarget(Infinity);
+        if (target) {
+          aimDir = Math.atan2(target.y - this.player.y, target.x - this.player.x);
+          haveAim = true;
+          this.autoAim.highlight = target;
+        }
+      }
       if (haveAim) this.player.dir = aimDir;
 
       // 开火
       const touchFire = (this.isTouchDevice && this.touch.right.active && (this.touch.right.mag > 0.25 || (this.autoAim.highlight && this.touch.right.mag > this.autoAim.minStickToFire)));
-      const shouldFire = this.mouse.down || this.gp.fire || touchFire;
+      const shouldFire = this.autoFire || this.mouse.down || this.gp.fire || touchFire;
       this.player.fireCooldown = Math.max(0, this.player.fireCooldown - dt);
       if (shouldFire && this.player.fireCooldown <= 0) { this.fireBullet(); this.player.fireCooldown = (this.buff.spread > 0 ? 0.10 : 0.12); }
 
       // 子弹
       for (let i = this.bullets.length - 1; i >= 0; i--) {
         const b = this.bullets[i];
-        b.x += Math.cos(b.dir) * b.speed * dt; b.y += Math.sin(b.dir) * b.speed * dt; b.life -= dt;
-        if (this.pointHitObstacle(b.x, b.y)) b.life = 0;
-        if (b.life <= 0) this.bullets.splice(i, 1);
+        b.x += Math.cos(b.dir) * b.speed * dt;
+        b.y += Math.sin(b.dir) * b.speed * dt;
+        if (b.homing) {
+          const tDir = Math.atan2(this.player.y - b.y, this.player.x - b.x);
+          const diff = ((tDir - b.dir + Math.PI) % (Math.PI * 2)) - Math.PI;
+          const maxTurn = 2.5 * dt;
+          b.dir += this.clamp(diff, -maxTurn, maxTurn);
+        }
+        b.life -= dt;
+        if (this.pointHitObstacle(b.x, b.y)) {
+          if (b.bounce && b.bounce > 0) {
+            b.dir += Math.PI;
+            b.bounce--;
+            b.x += Math.cos(b.dir) * 4;
+            b.y += Math.sin(b.dir) * 4;
+          } else {
+            b.life = 0;
+          }
+        }
+        if (b.life <= 0) { this.bullets.splice(i, 1); continue; }
+        if (b.from === 'enemy' && this.circleHit(b.x, b.y, 3, this.player.x, this.player.y, this.player.r)) {
+          this.player.hp -= b.dmg;
+          this.bullets.splice(i, 1);
+        }
+      }
+
+      // Boss刷新
+      this.bossTimer -= dt;
+      if (this.bossTimer <= 0) {
+        if (!this.zombies.some(z => z.boss)) this.spawnBoss();
+        this.bossTimer = this.bossInterval;
       }
 
       // 刷怪（环带）
@@ -809,24 +905,68 @@ export default {
       // 僵尸
       for (let i = this.zombies.length - 1; i >= 0; i--) {
         const z = this.zombies[i];
+        if (z.burnTime > 0) { z.burnTime -= dt; z.hp -= z.burnDps * dt; if (z.hp <= 0) { this.zombies.splice(i, 1); this.onKill(z); continue; } }
+        if (z.invuln > 0) z.invuln -= dt;
         if (z.elite) { z.dashCd -= dt; if (z.dashCd <= 0) { z.dashing = true; z.dashTime = 0.45; z.dashCd = 3 + Math.random() * 1.5; } if (z.dashing) { z.dashTime -= dt; if (z.dashTime <= 0) z.dashing = false; } }
-        const baseSpeed = z.speed * (z.dashing ? 3.2 : 1), angle = Math.atan2(this.player.y - z.y, this.player.x - z.x);
-        z.x += Math.cos(angle) * baseSpeed * dt; z.y += Math.sin(angle) * baseSpeed * dt;
-        this.resolveCircleObstacles(z);
+        const baseSpeed = z.speed * (z.dashing ? 3.2 : 1);
+        let dir = Math.atan2(this.player.y - z.y, this.player.x - z.x);
+        let step = baseSpeed * dt;
+        let nx = z.x + Math.cos(dir) * step, ny = z.y + Math.sin(dir) * step;
+        const fx = nx + Math.cos(dir) * z.r, fy = ny + Math.sin(dir) * z.r;
+        if (!z.ghost && this.pointHitObstacle(fx, fy)) {
+          const sign = Math.random() < 0.5 ? 1 : -1;
+          for (let a = 0.3; a < Math.PI; a += 0.3) {
+            const nd = dir + sign * a;
+            nx = z.x + Math.cos(nd) * step; ny = z.y + Math.sin(nd) * step;
+            const tx = nx + Math.cos(nd) * z.r, ty = ny + Math.sin(nd) * z.r;
+            if (!this.pointHitObstacle(tx, ty)) { dir = nd; break; }
+          }
+        }
+        z.x = nx; z.y = ny;
+        if (!z.ghost) this.resolveCircleObstacles(z);
+        if (z.ranged) {
+          z.shotCd -= dt;
+          const dist = Math.hypot(this.player.x - z.x, this.player.y - z.y);
+          if (dist < 600 && z.shotCd <= 0) {
+            const dir = Math.atan2(this.player.y - z.y, this.player.x - z.x);
+            const bullet = { x: z.x, y: z.y, dir, speed: 350, dmg: z.dmg * 0.6, life: 2.5, from: 'enemy' };
+            if (z.pooper) {
+              z.shotCount = (z.shotCount || 0) + 1;
+              if (z.shotCount % 3 === 0) {
+                bullet.speed = 280;
+                bullet.color = '#8b4513';
+                bullet.homing = true;
+              } else {
+                bullet.color = '#a0522d';
+              }
+            }
+            this.bullets.push(bullet);
+            z.shotCd = 2 + Math.random();
+          }
+        }
 
         // 子弹命中
         for (let j = this.bullets.length - 1; j >= 0; j--) {
           const b = this.bullets[j];
+          if (b.from !== 'player') continue;
           if (this.circleHit(b.x, b.y, 3, z.x, z.y, z.r)) {
-            z.hp -= b.dmg; this.bullets.splice(j, 1);
+            if (z.invuln > 0) continue;
+            z.hp -= b.dmg;
+            if (b.burn) { z.burnTime = 3; z.burnDps = 6; }
+            if (b.split && !b.fromSplit) {
+              for (const s of [-0.4, 0.4]) {
+                this.bullets.push({ x: z.x, y: z.y, dir: b.dir + s, speed: 560, dmg: b.dmg * 0.5, life: 0.6, from: 'player', pierce: 0, bounce: 0, burn: b.burn, split: false, fromSplit: true });
+              }
+            }
             this.makeHitParticles(z.x, z.y, '#6cf'); this.sfxHit();
             if (z.hp <= 0) { this.zombies.splice(i, 1); this.onKill(z); }
+            if (b.pierce && b.pierce > 0) { b.pierce--; } else { this.bullets.splice(j, 1); }
             break;
           }
         }
         // 咬玩家
         if (this.circleHit(this.player.x, this.player.y, this.player.r, z.x, z.y, z.r)) {
-          this.player.hp -= z.dmg * dt; const push = 50 * dt; z.x -= Math.cos(angle) * push; z.y -= Math.sin(angle) * push;
+          this.player.hp -= z.dmg * dt; const push = 50 * dt; z.x -= Math.cos(dir) * push; z.y -= Math.sin(dir) * push;
         }
 
         // 太远清理
@@ -878,14 +1018,29 @@ export default {
       }
 
       // 子弹
-      for (const b of this.bullets) { ctx.beginPath(); ctx.fillStyle = '#9cf'; ctx.arc(b.x, b.y, 3, 0, Math.PI * 2); ctx.fill(); }
+      for (const b of this.bullets) {
+        const color = b.color ? b.color : (b.burn ? '#ffb347' : (b.from === 'enemy' ? '#f99' : '#9cf'));
+        const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 3);
+        grad.addColorStop(0, '#fff');
+        grad.addColorStop(1, color);
+        ctx.globalAlpha = (b.pierce && b.pierce > 0) ? 0.55 : 1;
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
 
       // 僵尸（贴图 + 血条 + 数值HP）
       for (const z of this.zombies) {
         const img = z.elite ? this.assets.elite : this.assets.zombie;
         const rot = Math.atan2(this.player.y - z.y, this.player.x - z.x);
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.35)';
+        ctx.shadowBlur = 6;
         const drawn = this.drawSprite(img, z.x, z.y, z.r, rot);
-        if (!drawn) { ctx.save(); ctx.translate(z.x, z.y); ctx.rotate(rot); ctx.fillStyle = z.color; ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+        if (!drawn) { ctx.translate(z.x, z.y); ctx.rotate(rot); ctx.fillStyle = z.color; ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.fill(); }
+        ctx.restore();
 
         const bw = z.r * 2, bh = 4, bx = z.x - z.r, by = z.y - z.r - 12;
         ctx.fillStyle = '#222'; ctx.fillRect(bx, by, bw, bh);
@@ -926,7 +1081,7 @@ export default {
         ctx.fillStyle = '#fff'; ctx.font = 'bold 32px ui-sans-serif, system-ui'; ctx.textAlign = 'center';
         ctx.fillText(this.paused ? '已暂停' : '你阵亡了', screenW / 2, screenH / 2 - 10);
         ctx.font = '16px ui-sans-serif, system-ui';
-        ctx.fillText('Start/Esc 切换暂停；点击【重新开始】再战', screenW / 2, screenH / 2 + 20);
+        ctx.fillText('按 Start/Esc 切换暂停', screenW / 2, screenH / 2 + 20);
       }
     },
     drawTerrain(camX, camY, w, h) {
@@ -944,12 +1099,12 @@ export default {
 
           // 装饰在障碍下方
           for (const d of ch.decor) { ctx.beginPath(); ctx.fillStyle = d.color; ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2); ctx.fill(); }
-
-          // 障碍
-          ctx.fillStyle = '#1f2430'; ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-          for (const o of ch.obstacles) { this.roundRect(ctx, o.x, o.y, o.w, o.h, o.r); ctx.fill(); ctx.stroke(); }
         }
       }
+
+      // 障碍统一在所有地块绘制完后再绘制，避免相邻地块覆盖
+      ctx.fillStyle = '#1f2430'; ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      for (const o of this.visibleObstacles) { this.roundRect(ctx, o.x, o.y, o.w, o.h, o.r); ctx.fill(); ctx.stroke(); }
 
       // 世界网格
       ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
@@ -964,8 +1119,8 @@ export default {
       const mm = this.minimap;
       const mw = mm.open ? mm.openW : mm.closedW;
       const mh = mm.open ? mm.openH : mm.closedH;
-      const x = mm.margin;           // 左下角
-      const y = h - mh - mm.margin;
+      const x = mm.margin;           // 左上角
+      const y = mm.margin;
       return { x, y, w: mw, h: mh };
     },
     drawMinimap() {
@@ -1029,9 +1184,16 @@ export default {
         // 边缘夹紧：超出雷达范围的怪，贴到边框
         const dist = Math.hypot(dx, dy);
         if (dist > rMax) { const k = rMax / dist; px = cx + dx * k; py = cy + dy * k; }
-        ctx.beginPath();
-        ctx.fillStyle = z.elite ? '#ff8d4f' : '#88f88e';
-        ctx.arc(px, py, z.elite ? 3.5 : 2.5, 0, Math.PI * 2); ctx.fill();
+        if (z.boss) {
+          ctx.fillStyle = '#ff4757';
+          ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#fff'; ctx.font = '8px ui-sans-serif,system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('B', px, py + 0.5);
+        } else {
+          ctx.beginPath();
+          ctx.fillStyle = z.elite ? '#ff8d4f' : '#88f88e';
+          ctx.arc(px, py, z.elite ? 3.5 : 2.5, 0, Math.PI * 2); ctx.fill();
+        }
       }
 
       // 玩家点
@@ -1045,7 +1207,7 @@ export default {
     },
     zoomInMap() { this.minimap.zoom = this.clamp(this.minimap.zoom * 1.15, this.minimap.minZoom, this.minimap.maxZoom); },
     zoomOutMap() { this.minimap.zoom = this.clamp(this.minimap.zoom / 1.15, this.minimap.minZoom, this.minimap.maxZoom); },
-    toggleMapOpen() { this.minimap.open = !this.minimap.open; },
+    toggleMapOpen() { this.$store.commit('setMinimapOpen', !this.$store.state.settings.minimapOpen); },
 
     /* ===== Gameplay helpers ===== */
     fireBullet() {
@@ -1058,7 +1220,20 @@ export default {
         const dir = baseDir + offset;
         const muzzleX = p.x + Math.cos(dir) * (p.r + 12);
         const muzzleY = p.y + Math.sin(dir) * (p.r + 12);
-        this.bullets.push({ x: muzzleX, y: muzzleY, dir, speed: 740, dmg: 24 * (shots > 1 ? 0.65 : 1), life: 0.9 });
+        this.bullets.push({
+          x: muzzleX,
+          y: muzzleY,
+          dir,
+          speed: 740,
+          dmg: 24 * (shots > 1 ? 0.65 : 1),
+          life: 0.9,
+          from: 'player',
+          pierce: this.buff.pierce > 0 ? 2 : 0,
+          bounce: this.buff.bounce > 0 ? 2 : 0,
+          burn: this.buff.burn > 0,
+          split: this.buff.split > 0,
+          fromSplit: false
+        });
         this.makeMuzzleFlash(muzzleX, muzzleY);
       }
       this.sfxShot();
@@ -1076,9 +1251,21 @@ export default {
         const dmg = (elite ? 16 : 12) + this.wave * 0.6;
         const hue = elite ? 12 + Math.random() * 24 : 100 + Math.random() * 160;
         const color = elite ? `hsl(${hue} 80% 55%)` : `hsl(${hue} 60% 55%)`;
-        this.zombies.push({ x, y, r: zr, hp, maxHp: hp, speed, dmg, color, elite, dashing:false, dashCd: elite ? (1 + Math.random() * 1.5) : 9999, dashTime:0 });
+        const ghost = Math.random() < 0.1;
+        const invuln = Math.random() < 0.1 ? 2.0 : 0;
+        const pooper = Math.random() < 0.05;
+        const ranged = pooper || Math.random() < 0.1;
+        this.zombies.push({ x, y, r: zr, hp, maxHp: hp, speed, dmg, color, elite, dashing:false, dashCd: elite ? (1 + Math.random() * 1.5) : 9999, dashTime:0, ghost, invuln, ranged, pooper, shotCd: ranged ? 1.5 : 0, shotCount:0, burnTime:0, burnDps:0, boss:false });
         return;
       }
+    },
+    spawnBoss() {
+      const ang = Math.random() * Math.PI * 2; const r = 600 + Math.random() * 200;
+      const x = this.player.x + Math.cos(ang) * r; const y = this.player.y + Math.sin(ang) * r;
+      const hp = 1200 + this.wave * 80;
+      const speed = 60 + this.wave * 2;
+      const dmg = 35 + this.wave * 1.5;
+      this.zombies.push({ x, y, r: 28, hp, maxHp: hp, speed, dmg, color: '#ff4757', elite: true, boss: true, dashing:false, dashCd: 2, dashTime:0, ghost:false, invuln:0, ranged:true, shotCd:1.5, burnTime:0, burnDps:0 });
     },
     onKill(z) {
       const gain = Math.round(10 + z.maxHp * 0.1);
@@ -1086,13 +1273,33 @@ export default {
       this.score += gain * this.combo;
       this.makeDeathBurst(z.x, z.y, z.color);
       const dropRoll = Math.random(); const dropBias = z.elite ? 0.5 : 0.25;
-      if (dropRoll < dropBias) { const r = Math.random(); const type = r < 0.34 ? 'heal' : (r < 0.67 ? 'speed' : 'spread'); this.spawnDrop(z.x, z.y, type); }
+      if (dropRoll < dropBias) {
+        const types = ['heal','speed','spread','burn','pierce','bounce','split'];
+        const type = types[Math.floor(Math.random()*types.length)];
+        this.spawnDrop(z.x, z.y, type);
+      }
     },
     spawnDrop(x, y, type) {
-      const map = { heal:{icon:'❤️',color:'#ff9aa2'}, speed:{icon:'⚡',color:'#f9d56e'}, spread:{icon:'🔱',color:'#9ad3bc'} };
+      const map = {
+        heal:{icon:'❤️',color:'#ff9aa2'},
+        speed:{icon:'⚡',color:'#f9d56e'},
+        spread:{icon:'🔱',color:'#9ad3bc'},
+        burn:{icon:'🔥',color:'#ffb347'},
+        pierce:{icon:'🎯',color:'#c49bbb'},
+        bounce:{icon:'↩️',color:'#b6e0fe'},
+        split:{icon:'🔀',color:'#d4a5a5'}
+      };
       const cfg = map[type]; this.drops.push({ type, x, y, drawY:y, r:13, life:10, bob:0, icon:cfg.icon, color:cfg.color });
     },
-    applyDrop(type) { if (type==='heal') this.player.hp = Math.min(100, this.player.hp + 35); if (type==='speed') this.buff.speed = Math.max(this.buff.speed, 8); if (type==='spread') this.buff.spread = Math.max(this.buff.spread, 10); },
+    applyDrop(type) {
+      if (type==='heal') this.player.hp = Math.min(100, this.player.hp + 35);
+      if (type==='speed') this.buff.speed = Math.max(this.buff.speed, 8);
+      if (type==='spread') this.buff.spread = Math.max(this.buff.spread, 10);
+      if (type==='burn') this.buff.burn = Math.max(this.buff.burn, 10);
+      if (type==='pierce') this.buff.pierce = Math.max(this.buff.pierce, 10);
+      if (type==='bounce') this.buff.bounce = Math.max(this.buff.bounce, 10);
+      if (type==='split') this.buff.split = Math.max(this.buff.split, 10);
+    },
     findAutoAimTarget(range) { let best=null, bestD2=Infinity, px=this.player.x, py=this.player.y; for (const z of this.zombies){ const dx=z.x-px, dy=z.y-py, d2=dx*dx+dy*dy; if(d2<=range*range && d2<bestD2){best=z; bestD2=d2;}} return best; },
 
     /* ===== FX ===== */
@@ -1140,9 +1347,11 @@ export default {
 .actions{ pointer-events:auto; position:absolute; right:10px; top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 .actions button{ background:#1f2937; color:#e5e7eb; border:0; padding:6px 10px; border-radius:10px; cursor:pointer; }
 .actions button:hover{ filter:brightness(1.1); }
-.actions .audio{ display:flex; align-items:center; gap:6px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); padding:4px 6px; border-radius:10px; }
-.actions .audio .vol{ width:110px; height:6px; accent-color:#9cf; }
-.actions .map-ctrl{ display:flex; gap:6px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); padding:4px 6px; border-radius:10px; }
+
+.game-over{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,.7); color:#fff; padding:20px; border-radius:12px; z-index:4; display:flex; flex-direction:column; gap:12px; align-items:center; }
+.game-over button{ background:#1f2937; color:#e5e7eb; border:0; padding:6px 10px; border-radius:10px; cursor:pointer; }
+.game-over button:hover{ filter:brightness(1.1); }
+
 
 /* 触摸层（仅触屏渲染） */
 .touch-layer{ position:absolute; inset:0; z-index:1; pointer-events:auto; }
