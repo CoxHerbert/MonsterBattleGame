@@ -27,6 +27,26 @@
         <button @click="togglePause">{{ paused ? '继续' : '暂停' }}</button>
         <button @click="restart">重新开始</button>
         <button @click="toggleFullscreen">{{ isAnyFullscreen ? '退出全屏' : '全屏' }}</button>
+
+        <!-- 音频控制 -->
+        <div class="audio">
+          <button @click="toggleMute" :title="audio.muted ? '取消静音' : '静音'">
+            {{ audio.muted ? '🔇' : '🔊' }}
+          </button>
+          <input
+            class="vol"
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            :value="audio.volume"
+            @input="onVolumeInput($event)"
+            :title="'音量 ' + Math.round(audio.volume*100) + '%'"
+          />
+          <button @click="toggleBgm" :title="audio.bgmOn ? '关闭BGM' : '开启BGM'">
+            {{ audio.bgmOn ? '🎵 BGM 开' : '🎵 BGM 关' }}
+          </button>
+        </div>
       </div>
 
       <div class="tips">
@@ -59,6 +79,9 @@
 
 <script>
 const LS_KEY = 'zombie-best-score-v1';
+const VOL_KEY = 'zombie-volume';
+const MUTE_KEY = 'zombie-muted';
+const BGM_KEY = 'zombie-bgm';
 
 export default {
   name: 'ZombieGame',
@@ -130,13 +153,32 @@ export default {
       // device
       isTouchDevice: false,
 
-      // audio (WebAudio 合成)
+      // audio (WebAudio)
       audio: {
         ctx: null,
         ready: false,
+
+        // routing
+        master: null,
+        fxGain: null,
+        bgmGain: null,
+
+        // ui state
+        volume: 0.8,
+        muted: false,
+        bgmOn: true,
+
+        // sfx throttling
         lastShotAt: 0,
         lastHitAt: 0,
         lastPickupAt: 0,
+
+        // bgm nodes
+        pad1: null,
+        pad2: null,
+        lfo: null,
+        filter: null,
+        bgmPlaying: false,
       },
     };
   },
@@ -158,6 +200,13 @@ export default {
       ('ontouchstart' in window) ||
       (navigator.maxTouchPoints > 0);
 
+    // 读取音量/静音/BGM 首选项
+    const v = Number(localStorage.getItem(VOL_KEY));
+    if (!Number.isNaN(v) && v >= 0 && v <= 1) this.audio.volume = v;
+    this.audio.muted = localStorage.getItem(MUTE_KEY) === '1';
+    const bgmSaved = localStorage.getItem(BGM_KEY);
+    if (bgmSaved === '0' || bgmSaved === '1') this.audio.bgmOn = (bgmSaved === '1');
+
     this.bestScore = Number(localStorage.getItem(LS_KEY) || 0);
 
     this.wrap = this.$refs.wrap;
@@ -177,10 +226,9 @@ export default {
     window.addEventListener('gamepadconnected', this.onGamepadConnected);
     window.addEventListener('gamepaddisconnected', this.onGamepadDisconnected);
 
-    // 全屏变更监听（原生）
+    // 全屏变更
     document.addEventListener('fullscreenchange', this.onFullscreenChange);
-
-    // 音频可见性兜底：回到前台后再 resume 一次（iOS 常见）
+    // 前后台切换：回到前台确保音频 resume 和 BGM 恢复
     document.addEventListener('visibilitychange', this.onVisibilityChange);
 
     this.reset();
@@ -198,6 +246,7 @@ export default {
     window.removeEventListener('gamepaddisconnected', this.onGamepadDisconnected);
     document.removeEventListener('fullscreenchange', this.onFullscreenChange);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    this.stopBgm(true);
   },
   methods: {
     // ===== Fullscreen =====
@@ -216,7 +265,6 @@ export default {
           screen.orientation.lock('landscape').catch(()=>{});
         }
       } catch (e) {
-        // 失败就交给伪全屏
         this.isNativeFullscreen = false;
         this.enterPseudoFullscreen();
       }
@@ -229,18 +277,12 @@ export default {
       } catch { /* ignore */ }
     },
     enterPseudoFullscreen() {
-      // 用 CSS 铺满窗口
       this.isPseudoFullscreen = true;
-      // iOS 上滚到顶部避免地址栏遮挡
       setTimeout(() => window.scrollTo(0, 0), 0);
     },
-    exitPseudoFullscreen() {
-      this.isPseudoFullscreen = false;
-    },
+    exitPseudoFullscreen() { this.isPseudoFullscreen = false; },
     async toggleFullscreen() {
-      // 用户手势里顺便解锁音频
-      await this.ensureAudio();
-
+      await this.ensureAudio(); // 手势内顺便解锁音频/BGM
       if (!this.isAnyFullscreen) {
         if (this.hasNativeFullscreen()) await this.enterNativeFullscreen();
         else this.enterPseudoFullscreen();
@@ -248,23 +290,16 @@ export default {
         if (this.isNativeFullscreen) await this.exitNativeFullscreen();
         if (this.isPseudoFullscreen) this.exitPseudoFullscreen();
       }
-      // 尺寸微调
       setTimeout(this.handleResize, 50);
     },
     onFullscreenChange() {
-      // 原生全屏状态变化
       const el = document.fullscreenElement || document.webkitFullscreenElement || null;
       this.isNativeFullscreen = !!el;
-      if (!el && this.isPseudoFullscreen) {
-        // 保持伪全屏不受原生退出影响
-        this.isNativeFullscreen = false;
-      }
       setTimeout(this.handleResize, 50);
     },
 
-    // ===== Audio (WebAudio) =====
+    // ===== Audio Routing / Controls =====
     async ensureAudio() {
-      // 已就绪
       if (this.audio.ready && this.audio.ctx && this.audio.ctx.state === 'running') return true;
 
       try {
@@ -273,28 +308,151 @@ export default {
           if (!AudioCtx) return false;
           this.audio.ctx = new AudioCtx();
         }
-        // iOS/Safari 可能是 'suspended'，在用户手势内 resume
+        if (!this.audio.master) {
+          const ctx = this.audio.ctx;
+          this.audio.master = ctx.createGain();
+          this.audio.fxGain = ctx.createGain();
+          this.audio.bgmGain = ctx.createGain();
+
+          // 初始电平
+          this.audio.master.gain.value = this.audio.muted ? 0 : this.audio.volume;
+          this.audio.fxGain.gain.value = 1.0;
+          this.audio.bgmGain.gain.value = 0.0; // 先静音，待开启BGM时渐入
+
+          this.audio.fxGain.connect(this.audio.master);
+          this.audio.bgmGain.connect(this.audio.master);
+          this.audio.master.connect(ctx.destination);
+        }
+
+        // Safari/iOS 常见 suspended
         if (this.audio.ctx.state !== 'running') {
           await this.audio.ctx.resume();
         }
-        // 播个极短的静音脉冲，触发解锁
+
+        // 短静音脉冲触发解锁
         const b = this.audio.ctx.createBuffer(1, 1, 44100);
-        const s = this.audio.ctx.createBufferSource(); s.buffer = b; s.connect(this.audio.ctx.destination); s.start(0);
+        const s = this.audio.ctx.createBufferSource(); s.buffer = b; s.connect(this.audio.fxGain); s.start(0);
+
         this.audio.ready = (this.audio.ctx.state === 'running');
+
+        // 如果用户设置了 BGM 开启，则在解锁后启动
+        if (this.audio.ready && this.audio.bgmOn && !this.audio.bgmPlaying) {
+          this.startBgm(true);
+        }
         return this.audio.ready;
       } catch (e) {
         console.warn('Audio init failed:', e);
         return false;
       }
     },
+    setMasterGain(vol) {
+      if (!this.audio.master) return;
+      const target = this.audio.muted ? 0 : vol;
+      this.audio.master.gain.setTargetAtTime(target, this.audio.ctx.currentTime, 0.015);
+    },
+    onVolumeInput(e) {
+      const v = Math.max(0, Math.min(1, parseFloat(e.target.value)));
+      this.audio.volume = Number.isFinite(v) ? v : 0.8;
+      localStorage.setItem(VOL_KEY, String(this.audio.volume));
+      this.setMasterGain(this.audio.volume);
+    },
+    async toggleMute() {
+      await this.ensureAudio();
+      this.audio.muted = !this.audio.muted;
+      localStorage.setItem(MUTE_KEY, this.audio.muted ? '1' : '0');
+      this.setMasterGain(this.audio.volume);
+    },
+    async toggleBgm() {
+      await this.ensureAudio();
+      this.audio.bgmOn = !this.audio.bgmOn;
+      localStorage.setItem(BGM_KEY, this.audio.bgmOn ? '1' : '0');
+      if (this.audio.bgmOn) this.startBgm();
+      else this.stopBgm();
+    },
     async onVisibilityChange() {
       if (!this.audio.ctx) return;
       if (document.visibilityState === 'visible') {
-        try { await this.audio.ctx.resume(); this.audio.ready = (this.audio.ctx.state === 'running'); } catch {}
+        try {
+          await this.audio.ctx.resume();
+          this.audio.ready = (this.audio.ctx.state === 'running');
+          if (this.audio.ready && this.audio.bgmOn && !this.audio.bgmPlaying) {
+            this.startBgm(true);
+          }
+        } catch {}
       }
     },
+
+    // ===== BGM synth (pad) =====
+    startBgm(isResume = false) {
+      if (!this.audio.ready || this.audio.bgmPlaying) return;
+      const ctx = this.audio.ctx;
+
+      // 基础和弦：A 小调（A3=220Hz，E4=329.63Hz），轻微抖动与滤波
+      const pad1 = ctx.createOscillator(); pad1.type = 'sine'; pad1.frequency.value = 220;      // A3
+      const pad2 = ctx.createOscillator(); pad2.type = 'sine'; pad2.frequency.value = 329.63;  // E4
+
+      // 轻 vibrato LFO（调制 detune，±6 cents）
+      const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 5;
+      const lfoGain = ctx.createGain(); lfoGain.gain.value = 6; // cents
+      lfo.connect(lfoGain);
+      lfoGain.connect(pad1.detune);
+      lfoGain.connect(pad2.detune);
+
+      // 柔和低通
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 900;
+      filter.Q.value = 0.5;
+
+      // 合成 -> 滤波 -> bgmGain -> master
+      pad1.connect(filter);
+      pad2.connect(filter);
+      filter.connect(this.audio.bgmGain);
+
+      // 渐入
+      const now = ctx.currentTime;
+      const startGain = isResume ? this.audio.bgmGain.gain.value : 0;
+      this.audio.bgmGain.gain.cancelScheduledValues(now);
+      this.audio.bgmGain.gain.setValueAtTime(startGain, now);
+      this.audio.bgmGain.gain.linearRampToValueAtTime(0.20, now + 1.0); // 目标 BGM 电平
+
+      lfo.start(now);
+      pad1.start(now);
+      pad2.start(now);
+
+      // 保存引用，便于停止
+      this.audio.pad1 = pad1;
+      this.audio.pad2 = pad2;
+      this.audio.lfo = lfo;
+      this.audio.filter = filter;
+      this.audio.bgmPlaying = true;
+    },
+    stopBgm(immediate = false) {
+      if (!this.audio.bgmPlaying) return;
+      const ctx = this.audio.ctx;
+      const now = ctx.currentTime;
+      this.audio.bgmGain.gain.cancelScheduledValues(now);
+      if (immediate) {
+        this.audio.bgmGain.gain.setValueAtTime(0, now);
+      } else {
+        this.audio.bgmGain.gain.setValueAtTime(this.audio.bgmGain.gain.value, now);
+        this.audio.bgmGain.gain.linearRampToValueAtTime(0.0001, now + 0.6);
+      }
+      const stopAt = immediate ? now + 0.01 : now + 0.65;
+
+      const { pad1, pad2, lfo } = this.audio;
+      try { pad1 && pad1.stop(stopAt); } catch {}
+      try { pad2 && pad2.stop(stopAt); } catch {}
+      try { lfo && lfo.stop(stopAt); } catch {}
+
+      setTimeout(() => {
+        this.audio.pad1 = this.audio.pad2 = this.audio.lfo = this.audio.filter = null;
+        this.audio.bgmPlaying = false;
+      }, (immediate ? 20 : 700));
+    },
+
+    // ===== SFX synths =====
     now() { return (this.audio.ctx ? this.audio.ctx.currentTime : 0) || 0; },
-    // 合成器：包络 + 频率滑音
     oneShot({ type='square', freq=440, glide=-200, dur=0.10, gain=0.16, attack=0.004, decay=0.10 }) {
       if (!this.audio.ready) return;
       const ctx = this.audio.ctx;
@@ -306,23 +464,18 @@ export default {
       osc.frequency.setValueAtTime(Math.max(40, freq), t0);
       if (glide !== 0) {
         const endFreq = Math.max(40, freq + glide);
-        // 用 exponential + clamp 避免 0 频率报错
+        // exponentialRamp 需要正值
         osc.frequency.exponentialRampToValueAtTime(endFreq, t0 + Math.max(0.03, dur));
       }
-
-      // 轻限幅，避免爆音
-      const master = ctx.createGain();
-      master.gain.value = 0.8;
 
       g.gain.setValueAtTime(0, t0);
       g.gain.linearRampToValueAtTime(gain, t0 + attack);
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + Math.max(attack + decay, dur));
 
-      osc.connect(g).connect(master).connect(ctx.destination);
+      osc.connect(g).connect(this.audio.fxGain);
       osc.start(t0);
       osc.stop(t0 + dur + 0.06);
     },
-    // 射击
     sfxShot() {
       if (!this.audio.ready) return;
       const t = this.now();
@@ -330,7 +483,6 @@ export default {
       this.audio.lastShotAt = t;
       this.oneShot({ type:'square', freq: 1000, glide: -800, dur: 0.07, gain: 0.14, attack: 0.002, decay: 0.06 });
     },
-    // 命中：叠一点噪声增强打击感
     sfxHit() {
       if (!this.audio.ready) return;
       const t = this.now();
@@ -340,7 +492,7 @@ export default {
       // 主音
       this.oneShot({ type:'triangle', freq: 240, glide: -140, dur: 0.06, gain: 0.18, attack: 0.0015, decay: 0.06 });
 
-      // 噪声 burst（非常短）
+      // 噪声 burst
       const ctx = this.audio.ctx;
       const len = 0.04;
       const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * len), ctx.sampleRate);
@@ -354,11 +506,10 @@ export default {
       g.gain.linearRampToValueAtTime(0.12, t0 + 0.005);
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
 
-      src.connect(g).connect(ctx.destination);
+      src.connect(g).connect(this.audio.fxGain);
       src.start(t0);
       src.stop(t0 + len + 0.02);
     },
-    // 拾取
     sfxPickup() {
       if (!this.audio.ready) return;
       const t = this.now();
@@ -417,7 +568,7 @@ export default {
 
     // ===== kb/mouse =====
     async onKeyDown(e) {
-      await this.ensureAudio(); // 解锁音频
+      await this.ensureAudio();
       const k = e.key.toLowerCase();
       if (['w','a','s','d'].includes(k)) this.keys.add(k);
       if (k === ' ') { e.preventDefault(); this.mouse.down = true; }
@@ -473,7 +624,7 @@ export default {
 
     // ===== touch dual sticks =====
     async onTouchStart(e) {
-      await this.ensureAudio(); // 解锁音频（iOS 必须放在触摸事件里）
+      await this.ensureAudio();
       const rect = this.canvas.getBoundingClientRect();
       for (const t of e.changedTouches) {
         const x = t.clientX - rect.left;
@@ -993,15 +1144,28 @@ export default {
   color:#e7f4ff; padding:2px 8px; border-radius:10px;
   font:600 12px ui-sans-serif,system-ui; display:flex; gap:6px; align-items:center;
 }
+
 .actions{
   pointer-events:auto;
-  position:absolute; right:10px; top:8px; display:flex; gap:8px;
+  position:absolute; right:10px; top:8px; display:flex; gap:8px; align-items:center;
 }
 .actions button{
   background:#1f2937; color:#e5e7eb; border:0; padding:6px 10px;
   border-radius:10px; cursor:pointer;
 }
 .actions button:hover{ filter:brightness(1.1); }
+
+.actions .audio{
+  display:flex; align-items:center; gap:6px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.08);
+  padding:4px 6px; border-radius:10px;
+}
+.actions .audio .vol{
+  width:110px; height:6px;
+  accent-color:#9cf;
+}
+
 .tips{ pointer-events:none; color:#9fb3c8; font:12px ui-sans-serif,system-ui; padding:0 14px 12px; }
 
 /* 触摸层（仅触屏渲染） */
@@ -1024,3 +1188,4 @@ export default {
   box-shadow:0 4px 10px rgba(0,0,0,.25);
 }
 </style>
+  
