@@ -27,6 +27,7 @@
       <div class="actions">
         <button @click="togglePause">{{ paused ? '继续' : '暂停' }}</button>
         <button @click="restart">重新开始</button>
+        <button @click="toggleAutoFire">{{ autoFire ? '自动攻击：开' : '自动攻击：关' }}</button>
         <button @click="toggleFullscreen">{{ isAnyFullscreen ? '退出全屏' : '全屏' }}</button>
 
         <!-- 音频控制 -->
@@ -151,6 +152,9 @@ export default {
 
       // auto-aim
       autoAim: { enabled:true, range:260, minStickToFire:0.08, weakThreshold:0.25, highlight:null },
+
+      // auto fire
+      autoFire: false,
 
       // world / infinite
       worldSeed: Math.floor(Math.random()*2**31)>>>0,
@@ -587,6 +591,7 @@ export default {
     },
     restart() { this.reset(); },
     togglePause() { this.paused = !this.paused; },
+    toggleAutoFire() { this.autoFire = !this.autoFire; },
 
     /* ===== Input ===== */
     async onKeyDown(e) {
@@ -784,7 +789,7 @@ export default {
 
       // 开火
       const touchFire = (this.isTouchDevice && this.touch.right.active && (this.touch.right.mag > 0.25 || (this.autoAim.highlight && this.touch.right.mag > this.autoAim.minStickToFire)));
-      const shouldFire = this.mouse.down || this.gp.fire || touchFire;
+      const shouldFire = this.autoFire || this.mouse.down || this.gp.fire || touchFire;
       this.player.fireCooldown = Math.max(0, this.player.fireCooldown - dt);
       if (shouldFire && this.player.fireCooldown <= 0) { this.fireBullet(); this.player.fireCooldown = (this.buff.spread > 0 ? 0.10 : 0.12); }
 
