@@ -32,37 +32,7 @@
         <button @click="toggleSettings">{{ settingsOpen ? '关闭设置' : '设置' }}</button>
       </div>
 
-      <div v-if="settingsOpen" class="settings-panel">
-        <div class="audio">
-          <button @click="toggleMute" :title="audio.muted ? '取消静音' : '静音'">
-            {{ audio.muted ? '🔇' : '🔊' }}
-          </button>
-          <input
-            class="vol"
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            :value="audio.volume"
-            @input="onVolumeInput($event)"
-            :title="'音量 ' + Math.round(audio.volume*100) + '%'"
-          />
-        <button @click="toggleBgm" :title="audio.bgmOn ? '关闭BGM' : '开启BGM'">
-            {{ audio.bgmOn ? '🎵 BGM 开' : '🎵 BGM 关' }}
-          </button>
-        </div>
-        <button @click="toggleMapOpen">{{ minimap.open ? '雷达：开' : '雷达：关' }}</button>
-        <div class="map-size">
-          <label>地图大小：
-            <select v-model="minimap.size" @change="updateMinimapSize">
-              <option value="small">小</option>
-              <option value="medium">中</option>
-              <option value="large">大</option>
-            </select>
-          </label>
-        </div>
-        <button @click="restart">重新开始</button>
-      </div>
+      <SettingsPanel v-if="settingsOpen" :showRestart="true" @restart="restart" />
 
       <div class="tips">
         键鼠：WASD + 鼠标 ｜ 手柄：左摇杆移动、右摇杆瞄准、RT/A 射击 ｜ 触屏：左下移动，右下瞄准（轻推触发自动瞄准）。
@@ -93,6 +63,7 @@
 </template>
 
 <script>
+import SettingsPanel from '../components/SettingsPanel.vue'
 const LS_KEY = 'zombie-best-score-v1';
 const VOL_KEY = 'zombie-volume';
 const MUTE_KEY = 'zombie-muted';
@@ -130,6 +101,7 @@ function seedFrom(cx, cy, worldSeed){const s=((cx*73856093)^(cy*19349663)^worldS
 
 export default {
   name: 'ZombieGame',
+  components: { SettingsPanel },
   data() {
     return {
       // DOM
@@ -219,6 +191,7 @@ export default {
     };
   },
   computed: {
+    settings() { return this.$store.state.settings; },
     activeBuffs() {
       const list = [];
       if (this.buff.speed > 0)  list.push({ kind: '⚡Speed', left: this.buff.speed });
@@ -230,6 +203,22 @@ export default {
       return list;
     },
     isAnyFullscreen() { return this.isNativeFullscreen || this.isPseudoFullscreen; }
+  },
+  watch: {
+    'settings.volume'(v) {
+      this.audio.volume = v;
+      this.setMasterGain(v);
+    },
+    'settings.muted'(v) {
+      this.audio.muted = v;
+      this.setMasterGain(this.audio.volume);
+    },
+    'settings.bgmOn'(v) {
+      this.audio.bgmOn = v;
+      if (v) this.startBgm(); else this.stopBgm();
+    },
+    'settings.minimapOpen'(v) { this.minimap.open = v; },
+    'settings.minimapSize'(v) { this.minimap.size = v; this.updateMinimapSize(); }
   },
   mounted() {
     // touch check
@@ -244,6 +233,13 @@ export default {
     this.audio.muted = localStorage.getItem(MUTE_KEY) === '1';
     const bgmSaved = localStorage.getItem(BGM_KEY);
     if (bgmSaved === '0' || bgmSaved === '1') this.audio.bgmOn = (bgmSaved === '1');
+    this.$store.commit('setVolume', this.audio.volume);
+    this.$store.commit('setMuted', this.audio.muted);
+    this.$store.commit('setBgmOn', this.audio.bgmOn);
+
+    this.minimap.open = this.settings.minimapOpen;
+    this.minimap.size = this.settings.minimapSize;
+    this.updateMinimapSize();
 
     this.bestScore = Number(localStorage.getItem(LS_KEY) || 0);
 
@@ -389,25 +385,6 @@ export default {
       if (!this.audio.master) return;
       const target = this.audio.muted ? 0 : vol;
       this.audio.master.gain.setTargetAtTime(target, this.audio.ctx.currentTime, 0.015);
-    },
-    onVolumeInput(e) {
-      const v = Math.max(0, Math.min(1, parseFloat(e.target.value)));
-      this.audio.volume = Number.isFinite(v) ? v : 0.8;
-      localStorage.setItem(VOL_KEY, String(this.audio.volume));
-      this.setMasterGain(this.audio.volume);
-    },
-    async toggleMute() {
-      await this.ensureAudio();
-      this.audio.muted = !this.audio.muted;
-      localStorage.setItem(MUTE_KEY, this.audio.muted ? '1' : '0');
-      this.setMasterGain(this.audio.volume);
-    },
-    async toggleBgm() {
-      await this.ensureAudio();
-      this.audio.bgmOn = !this.audio.bgmOn;
-      localStorage.setItem(BGM_KEY, this.audio.bgmOn ? '1' : '0');
-      if (this.audio.bgmOn) this.startBgm();
-      else this.stopBgm();
     },
     async onVisibilityChange() {
       if (!this.audio.ctx) return;
@@ -885,8 +862,21 @@ export default {
         if (z.burnTime > 0) { z.burnTime -= dt; z.hp -= z.burnDps * dt; if (z.hp <= 0) { this.zombies.splice(i, 1); this.onKill(z); continue; } }
         if (z.invuln > 0) z.invuln -= dt;
         if (z.elite) { z.dashCd -= dt; if (z.dashCd <= 0) { z.dashing = true; z.dashTime = 0.45; z.dashCd = 3 + Math.random() * 1.5; } if (z.dashing) { z.dashTime -= dt; if (z.dashTime <= 0) z.dashing = false; } }
-        const baseSpeed = z.speed * (z.dashing ? 3.2 : 1), angle = Math.atan2(this.player.y - z.y, this.player.x - z.x);
-        z.x += Math.cos(angle) * baseSpeed * dt; z.y += Math.sin(angle) * baseSpeed * dt;
+        const baseSpeed = z.speed * (z.dashing ? 3.2 : 1);
+        let dir = Math.atan2(this.player.y - z.y, this.player.x - z.x);
+        let step = baseSpeed * dt;
+        let nx = z.x + Math.cos(dir) * step, ny = z.y + Math.sin(dir) * step;
+        const fx = nx + Math.cos(dir) * z.r, fy = ny + Math.sin(dir) * z.r;
+        if (!z.ghost && this.pointHitObstacle(fx, fy)) {
+          const sign = Math.random() < 0.5 ? 1 : -1;
+          for (let a = 0.3; a < Math.PI; a += 0.3) {
+            const nd = dir + sign * a;
+            nx = z.x + Math.cos(nd) * step; ny = z.y + Math.sin(nd) * step;
+            const tx = nx + Math.cos(nd) * z.r, ty = ny + Math.sin(nd) * z.r;
+            if (!this.pointHitObstacle(tx, ty)) { dir = nd; break; }
+          }
+        }
+        z.x = nx; z.y = ny;
         if (!z.ghost) this.resolveCircleObstacles(z);
         if (z.ranged) {
           z.shotCd -= dt;
@@ -919,7 +909,7 @@ export default {
         }
         // 咬玩家
         if (this.circleHit(this.player.x, this.player.y, this.player.r, z.x, z.y, z.r)) {
-          this.player.hp -= z.dmg * dt; const push = 50 * dt; z.x -= Math.cos(angle) * push; z.y -= Math.sin(angle) * push;
+          this.player.hp -= z.dmg * dt; const push = 50 * dt; z.x -= Math.cos(dir) * push; z.y -= Math.sin(dir) * push;
         }
 
         // 太远清理
@@ -1150,7 +1140,7 @@ export default {
     },
     zoomInMap() { this.minimap.zoom = this.clamp(this.minimap.zoom * 1.15, this.minimap.minZoom, this.minimap.maxZoom); },
     zoomOutMap() { this.minimap.zoom = this.clamp(this.minimap.zoom / 1.15, this.minimap.minZoom, this.minimap.maxZoom); },
-    toggleMapOpen() { this.minimap.open = !this.minimap.open; },
+    toggleMapOpen() { this.$store.commit('setMinimapOpen', !this.$store.state.settings.minimapOpen); },
 
     /* ===== Gameplay helpers ===== */
     fireBullet() {
@@ -1290,11 +1280,6 @@ export default {
 .actions button{ background:#1f2937; color:#e5e7eb; border:0; padding:6px 10px; border-radius:10px; cursor:pointer; }
 .actions button:hover{ filter:brightness(1.1); }
 
-.settings-panel{ pointer-events:auto; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:rgba(31,41,55,.95); color:#e5e7eb; padding:20px; border-radius:12px; display:flex; flex-direction:column; gap:12px; align-items:center; }
-.settings-panel button{ background:#1f2937; color:#e5e7eb; border:0; padding:6px 10px; border-radius:10px; cursor:pointer; }
-.settings-panel button:hover{ filter:brightness(1.1); }
-.settings-panel .audio{ display:flex; align-items:center; gap:6px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); padding:4px 6px; border-radius:10px; }
-.settings-panel .audio .vol{ width:110px; height:6px; accent-color:#9cf; }
 
 /* 触摸层（仅触屏渲染） */
 .touch-layer{ position:absolute; inset:0; z-index:1; pointer-events:auto; }
