@@ -231,6 +231,8 @@ export default {
       // assets
       assets: { ready:false, player:null, zombie:null, elite:null, boss:null },
 
+      miniFxEnabled: true,
+
       // 小地图 / 雷达
       minimap: {
         open: true,
@@ -1371,6 +1373,66 @@ export default {
       return { fill, stroke, strokeWidth, r, alpha };
     },
 
+    /* ===== 时间脉冲：返回 0~1，用于闪烁/缩放 ===== */
+    timePulse(speed = 6, phase = 0){
+      return 0.5 + 0.5 * Math.sin((performance.now() / 1000) * speed + phase);
+    },
+
+    /* ===== Minimap：根据敌人“状态/前摇”给出警戒样式 =====
+       返回 null 或 { color, width, scale, alpha }：
+       - color: 外圈描边色
+       - width: 线宽（像素）
+       - scale: 在基础半径上的放大倍数（用于脉冲）
+       - alpha: 透明度（0~1）
+    */
+    enemyMinimapAlert(z){
+      // 默认无警戒
+      let alert = null;
+
+      // —— 冲锋者（或带 dash 的精英）：冲锋时高亮 —— //
+      if (z.dashing){
+        const p = this.timePulse(8);
+        alert = { color:'#f59e0b', width:2, scale:1 + 0.25*p, alpha:0.6 + 0.4*p };
+      }
+
+      // —— 射手/喷吐者：射击前 0.3s 闪烁 —— //
+      if (!alert && z.shotCd !== undefined && z.shotCd < 0.3){
+        const p = this.timePulse(10);
+        const col = (z.ai === 'spit') ? '#34d399' : '#93c5fd';
+        alert = { color:col, width:1.5, scale:1 + 0.18*p, alpha:0.45 + 0.4*p };
+      }
+
+      // —— 召唤者：召唤前 0.6s 闪烁 —— //
+      if (!alert && z.summonCd !== undefined && z.summonCd < 0.6){
+        const p = this.timePulse(9);
+        alert = { color:'#b39ddb', width:2, scale:1 + 0.22*p, alpha:0.5 + 0.45*p };
+      }
+
+      // —— 自爆体：玩家进入爆炸半径时持续红色警戒 —— //
+      if (!alert && z.cfg && z.cfg.boom){
+        const R = z.cfg.boom.radius || 96;
+        const d = Math.hypot(this.player.x - z.x, this.player.y - z.y);
+        if (d <= R){
+          const p = this.timePulse(12);
+          alert = { color:'#ef4444', width:2, scale:1 + 0.28*p, alpha:0.55 + 0.4*p };
+        }
+      }
+
+      // —— Boss 前摇：暴君(锥形) / 母巢(弹幕) —— //
+      if (!alert && z.boss){
+        // 这些私有冷却变量在 EnemyBrain 里有使用；不存在就忽略
+        if (z._coneCd !== undefined && z._coneCd < 0.35){
+          const p = this.timePulse(11);
+          alert = { color:'#ff4757', width:2.5, scale:1 + 0.3*p, alpha:0.6 + 0.35*p };
+        } else if (z._novaCd !== undefined && z._novaCd < 0.4){
+          const p = this.timePulse(11);
+          alert = { color:'#ff4ea3', width:2.5, scale:1 + 0.3*p, alpha:0.6 + 0.35*p };
+        }
+      }
+
+      return alert;
+    },
+
     getMinimapRect() {
       const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
       const mm = this.minimap;
@@ -1432,14 +1494,14 @@ export default {
         }
       }
 
-      // 怪物点（按类型/精英/Boss 着色）
+      // 怪物点（按类型/精英/Boss 着色 + 状态闪烁）
       const rMax = Math.min(w, h) / 2 - 8;
       for (const z of this.zombies) {
         const dx = (z.x - this.player.x) * scale;
         const dy = (z.y - this.player.y) * scale;
         let px = cx + dx, py = cy + dy;
 
-        // 边缘夹紧：超出雷达范围的怪贴边显示
+        // 边缘夹紧
         const dist = Math.hypot(dx, dy);
         if (dist > rMax) { const k = rMax / dist; px = cx + dx * k; py = cy + dy * k; }
 
@@ -1463,7 +1525,19 @@ export default {
         ctx.fill();
         ctx.globalAlpha = 1;
 
-        // Boss 文字标识（保持你原有的 “B”）
+        // —— 战斗状态：警戒 Ring（闪烁/放大） —— //
+        const alert = this.miniFxEnabled ? this.enemyMinimapAlert(z) : null;
+        if (alert){
+          ctx.beginPath();
+          ctx.globalAlpha = alert.alpha;
+          ctx.strokeStyle = alert.color;
+          ctx.lineWidth = alert.width;
+          ctx.arc(px, py, sty.r * (alert.scale || 1.0) + 1.5, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+
+        // Boss 标识
         if (z.boss){
           ctx.fillStyle = '#fff';
           ctx.font = '8px ui-sans-serif,system-ui';
