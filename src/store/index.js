@@ -6,6 +6,8 @@ const VOL_KEY = 'zombie-volume'
 const MUTE_KEY = 'zombie-muted'
 const BGM_KEY = 'zombie-bgm'
 
+const FX_KEY = 'zombie-fx'
+
 const LANG_KEY = 'zombie-lang'
 
 const volume = Number(localStorage.getItem(VOL_KEY))
@@ -13,6 +15,7 @@ const muted = localStorage.getItem(MUTE_KEY) === '1'
 const bgmSaved = localStorage.getItem(BGM_KEY)
 
 const langSaved = localStorage.getItem(LANG_KEY) || 'zh'
+const fxSaved = localStorage.getItem(FX_KEY) || 'medium'
 
 export default createStore({
   state: () => ({
@@ -23,7 +26,8 @@ export default createStore({
       minimapOpen: true,
 
       minimapSize: 'medium',
-      language: langSaved
+      language: langSaved,
+      fxIntensity: fxSaved
     }
   }),
   mutations: {
@@ -46,6 +50,10 @@ export default createStore({
       state.settings.language = v
       localStorage.setItem(LANG_KEY, v)
       i18n.global.locale.value = v
+    },
+    setFxIntensity(state, v) {
+      state.settings.fxIntensity = v
+      localStorage.setItem(FX_KEY, v)
     }
   }
 })

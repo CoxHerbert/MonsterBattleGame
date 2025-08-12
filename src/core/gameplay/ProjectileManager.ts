@@ -3,6 +3,7 @@ import { Enemy } from './Enemy'
 import { applyDamage } from './DamageSystem'
 import { StatusSystem } from './StatusSystem'
 import { EnemyManager } from './EnemyManager'
+import { Fx } from '../fx/FxSystem'
 
 interface Projectile {
   x: number
@@ -20,20 +21,23 @@ export class ProjectileManager {
 
   fire(from: { x: number; y: number }, toEnemy: Enemy, stats: TowerStats, ownerId: string): void {
     if (stats.projectileType === 'chain') {
-      this.chainLightning(toEnemy, stats, ownerId)
+      this.chainLightning(from, toEnemy, stats, ownerId)
       return
     }
     this.projectiles.push({ x: from.x, y: from.y, target: toEnemy, speed: 400, stats, ownerId })
   }
 
-  private chainLightning(first: Enemy, stats: TowerStats, ownerId: string) {
+  private chainLightning(fromPos: { x: number; y: number }, first: Enemy, stats: TowerStats, ownerId: string) {
     const hit = new Set<Enemy>()
     let current: Enemy | null = first
+    let prevPoint = fromPos
     let dmg = stats.damage
     for (let i = 0; i < 3 && current; i++) {
       applyDamage(current, { amount: dmg, type: stats.damageType, sourceId: ownerId })
       if (stats.statusOnHit) this.statuses.add(current, { ...stats.statusOnHit, sourceId: ownerId })
+      Fx.chainLightning(prevPoint, { x: current.x, y: current.y })
       hit.add(current)
+      prevPoint = { x: current.x, y: current.y }
       dmg *= 0.7
       current = this.findNext(current, hit, stats.range)
     }
@@ -64,6 +68,8 @@ export class ProjectileManager {
       if (dist <= step) {
         applyDamage(p.target, { amount: p.stats.damage, type: p.stats.damageType, sourceId: p.ownerId })
         if (p.stats.statusOnHit) this.statuses.add(p.target, { ...p.stats.statusOnHit, sourceId: p.ownerId })
+        Fx.hit(p.target.x, p.target.y)
+        if (p.stats.aoeRadius) Fx.explosion(p.target.x, p.target.y)
         return false
       }
       p.x += (dx / dist) * step

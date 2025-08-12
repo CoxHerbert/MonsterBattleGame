@@ -6,12 +6,21 @@
       <button @click="toggleBgm">{{ settings.bgmOn ? 'BGM On' : 'BGM Off' }}</button>
     </div>
     <button @click="toggleRadar">{{ settings.minimapOpen ? 'Hide Radar' : 'Show Radar' }}</button>
+    <div class="fx">
+      FX:
+      <select v-model="fx">
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+      </select>
+    </div>
     <button @click="$emit('restart')">Restart</button>
     <button @click="$emit('close')">Close</button>
   </div>
 </template>
 
 <script>
+import { Fx } from '../core/fx/FxSystem'
 export default {
   name: 'SettingsDialog',
   emits: ['close', 'restart', 'toggle-radar'],
@@ -20,6 +29,13 @@ export default {
     volume: {
       get() { return this.settings.volume },
       set(v) { this.$store.commit('setVolume', v) }
+    },
+    fx: {
+      get() { return this.settings.fxIntensity },
+      set(v) {
+        this.$store.commit('setFxIntensity', v)
+        Fx.setIntensity(v)
+      }
     }
   },
   methods: {
@@ -36,4 +52,5 @@ export default {
 <style scoped>
 .settings-dialog { pointer-events:auto; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:#222; color:#fff; padding:20px; border-radius:8px; display:flex; flex-direction:column; gap:8px; }
 .audio { display:flex; align-items:center; gap:6px; }
+.fx { display:flex; align-items:center; gap:6px; }
 </style>
