@@ -1,0 +1,10 @@
+[
+  {"id":"arrow","name":"Arrow Tower","cost":50,"range":140,"fireRate":1.25,"damage":18,"damageType":"physical","projectile":"bullet","targetPriority":"first","upgrades":[
+    {"level":2,"cost":60,"delta":{"damage":8,"fireRate":1.4}},
+    {"level":3,"cost":120,"delta":{"damage":14,"range":160},"perkNote":"+10% crit chance"}
+  ]},
+  {"id":"cannon","name":"Cannon","cost":90,"range":130,"fireRate":0.625,"damage":34,"damageType":"magic","projectile":"shell","aoeRadius":40,"targetPriority":"strong"},
+  {"id":"ice","name":"Ice Tower","cost":80,"range":120,"fireRate":0.8,"damage":8,"damageType":"ice","projectile":"bullet","targetPriority":"first",
+   "statusOnHit":{"kind":"slow","value":0.4,"duration":1.8}}
+  ,{"id":"tesla","name":"Tesla","cost":110,"range":150,"fireRate":1,"damage":20,"damageType":"electric","projectile":"chain","targetPriority":"first"}
+]

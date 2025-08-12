@@ -20,16 +20,16 @@
       </ul>
       <button @click="savesOpen=false">{{ $t('home.close') }}</button>
     </div>
-    <SettingsPanel v-if="settingsOpen" @close="settingsOpen=false" />
+    <SettingsDialog v-if="settingsOpen" @close="settingsOpen=false" />
   </div>
 </template>
 
 <script>
-import SettingsPanel from '../components/SettingsPanel.vue'
+import SettingsDialog from '../components/SettingsDialog.vue'
 
 export default {
   name: 'HomeView',
-  components: { SettingsPanel },
+  components: { SettingsDialog },
   data() {
     return { settingsOpen: false, savesOpen: false }
   },

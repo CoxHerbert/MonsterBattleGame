@@ -1,0 +1,1 @@
+This directory holds sprite atlas metadata. The actual texture file `tiles.png` is not included in this repository. Provide your own `tiles.png` matching the frames in `tiles.json` when running the game.

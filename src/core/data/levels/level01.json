@@ -1,0 +1,18 @@
+{
+  "id":"level01",
+  "name":"Outpost-01",
+  "width":1280,
+  "height":720,
+  "tileSize":32,
+  "paths":[
+    {"lane":0,"waypoints":[{"x":32,"y":320},{"x":320,"y":320},{"x":320,"y":640},{"x":1184,"y":640}]}
+  ],
+  "buildable": [],
+  "startLife":20,
+  "startGold":120,
+  "waves":[
+    {"id":"w1","reward":10,"spawns":[{"t":0,"enemyId":"grunt","count":8,"interval":0.7}]},
+    {"id":"w2","reward":20,"spawns":[{"t":0,"enemyId":"runner","count":12,"interval":0.5}]},
+    {"id":"w3","reward":30,"spawns":[{"t":0,"enemyId":"grunt","count":8,"interval":0.6},{"t":6,"enemyId":"tank","count":2,"interval":1.5}]}
+  ]
+}
