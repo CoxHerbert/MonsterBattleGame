@@ -5,37 +5,44 @@
     <!-- HUD -->
     <div class="hud">
       <div class="stats">
-        <span>Score: {{ score }}</span>
-        <span>Best: {{ bestScore }}</span>
-        <span>Combo: {{ combo }}x</span>
-        <span>HP: {{ Math.max(0, Math.ceil(player.hp)) }}</span>
-        <span>Wave: {{ wave }}</span>
-        <span>Boss: {{ Math.ceil(bossTimer) }}s</span>
-        <span v-if="paused">⏸ Paused</span>
+        <span>{{ $t('game.score') }}: {{ score }}</span>
+        <span>{{ $t('game.best') }}: {{ bestScore }}</span>
+        <span>{{ $t('game.combo') }}: {{ combo }}x</span>
+        <span>{{ $t('game.hp') }}: {{ Math.max(0, Math.ceil(player.hp)) }}</span>
+        <span>{{ $t('game.wave') }}: {{ wave }}</span>
+        <span>{{ $t('game.boss') }}: {{ Math.ceil(bossTimer) }}{{ $t('game.seconds') }}</span>
+        <span v-if="paused">⏸ {{ $t('game.paused') }}</span>
         <span v-if="gamepad.name" class="pad">🎮 {{ gamepad.name }}</span>
-        <span v-if="autoAim.enabled && isTouchDevice" class="pad">🎯 AimAssist</span>
-        <span v-if="!audio.ready" class="pad">🔇 轻点屏幕以启用声音</span>
-        <span v-if="!assets.ready" class="pad">🖼️ 贴图加载中…</span>
+        <span v-if="autoAim.enabled && isTouchDevice" class="pad">🎯 {{ $t('game.aimAssist') }}</span>
+        <span v-if="!audio.ready" class="pad">🔇 {{ $t('game.tapToEnableSound') }}</span>
+        <span v-if="!assets.ready" class="pad">🖼️ {{ $t('game.loadingImages') }}</span>
       </div>
 
       <div class="buffs" v-if="activeBuffs.length">
         <div class="buff" v-for="b in activeBuffs" :key="b.kind">
           <span class="tag">{{ b.kind }}</span>
-          <span class="time">{{ b.left.toFixed(1) }}s</span>
+          <span class="time">{{ b.left.toFixed(1) }}{{ $t('game.seconds') }}</span>
         </div>
       </div>
 
       <div class="actions">
-        <button @click="togglePause">{{ paused ? '继续' : '暂停' }}</button>
-        <button @click="toggleAutoFire">{{ autoFire ? '自动攻击：开' : '自动攻击：关' }}</button>
-        <button @click="toggleFullscreen">{{ isAnyFullscreen ? '退出全屏' : '全屏' }}</button>
-        <button @click="openSettings">设置</button>
+
+        <button @click="togglePause">{{ paused ? $t('game.resume') : $t('game.pause') }}</button>
+        <button @click="toggleAutoFire">{{ autoFire ? $t('game.autoFireOn') : $t('game.autoFireOff') }}</button>
+        <button @click="toggleFullscreen">{{ isAnyFullscreen ? $t('game.exitFullscreen') : $t('game.fullscreen') }}</button>
+        <button @click="openSettings">{{ $t('game.settings') }}</button>
       </div>
-      <SettingsPanel v-if="settingsOpen" :showRestart="true" @restart="restart" @close="closeSettings" />
+      <SettingsPanel v-if="settingsOpen" :showRestart="true" :allowSave="true" @save="saveAndExit" @restart="restart" @close="closeSettings" />
 
       <div class="tips">
-        键鼠：WASD + 鼠标 ｜ 手柄：左摇杆移动、右摇杆瞄准、RT/A 射击 ｜ 触屏：左下移动，右下瞄准（轻推触发自动瞄准）。
+        {{ $t('game.tips') }}
       </div>
+    </div>
+
+    <div v-if="gameOver" class="game-over">
+      <p>{{ $t('game.gameOver', { score }) }}</p>
+      <button @click="restart">{{ $t('game.restart') }}</button>
+      <button @click="exitToHome">{{ $t('game.backHome') }}</button>
     </div>
 
     <!-- 触控层（仅触屏设备渲染） -->
@@ -105,7 +112,7 @@ export default {
       dpr: Math.min(window.devicePixelRatio || 1, 2),
 
       // runtime
-      running: false, paused: false, lastTime: 0, accTime: 0,
+      running: false, paused: false, gameOver: false, lastTime: 0, accTime: 0,
 
       // fullscreen
       isNativeFullscreen: false, isPseudoFullscreen: false,
@@ -189,13 +196,14 @@ export default {
   computed: {
     settings() { return this.$store.state.settings; },
     activeBuffs() {
+      const t = this.$t
       const list = [];
-      if (this.buff.speed > 0)  list.push({ kind: '⚡Speed', left: this.buff.speed });
-      if (this.buff.spread > 0) list.push({ kind: '🔱Spread', left: this.buff.spread });
-      if (this.buff.burn > 0)   list.push({ kind: '🔥Burn', left: this.buff.burn });
-      if (this.buff.pierce > 0) list.push({ kind: '🎯Pierce', left: this.buff.pierce });
-      if (this.buff.bounce > 0) list.push({ kind: '↩️Bounce', left: this.buff.bounce });
-      if (this.buff.split > 0)  list.push({ kind: '🔀Split', left: this.buff.split });
+      if (this.buff.speed > 0)  list.push({ kind: t('game.buff.speed'), left: this.buff.speed });
+      if (this.buff.spread > 0) list.push({ kind: t('game.buff.spread'), left: this.buff.spread });
+      if (this.buff.burn > 0)   list.push({ kind: t('game.buff.burn'), left: this.buff.burn });
+      if (this.buff.pierce > 0) list.push({ kind: t('game.buff.pierce'), left: this.buff.pierce });
+      if (this.buff.bounce > 0) list.push({ kind: t('game.buff.bounce'), left: this.buff.bounce });
+      if (this.buff.split > 0)  list.push({ kind: t('game.buff.split'), left: this.buff.split });
       return list;
     },
     isAnyFullscreen() { return this.isNativeFullscreen || this.isPseudoFullscreen; }
@@ -254,6 +262,8 @@ export default {
     document.addEventListener('visibilitychange', this.onVisibilityChange);
 
     this.reset();
+    const saveId = this.$route.query.save;
+    if (saveId) this.loadSave(saveId);
 
     // load sprites & run
     this.loadSprites().then(() => {
@@ -579,7 +589,7 @@ export default {
       this.bullets = []; this.zombies = []; this.particles = []; this.drops = [];
       this.buff.speed = 0; this.buff.spread = 0; this.buff.burn = 0; this.buff.pierce = 0; this.buff.bounce = 0; this.buff.split = 0;
       this.bossTimer = this.bossInterval;
-      this.paused = false; this.lastTime = performance.now();
+      this.paused = false; this.gameOver = false; this.lastTime = performance.now();
       this.touch.left.active = false; this.touch.left.id = -1;
       this.touch.right.active = false; this.touch.right.id = -1;
       this.autoAim.highlight = null;
@@ -589,6 +599,42 @@ export default {
       this.reset();
       this.settingsOpen = false;
     },
+
+    saveAndExit() {
+      const saves = JSON.parse(localStorage.getItem('saves') || '[]');
+      const id = Date.now();
+      saves.push({
+        id,
+        state: {
+          player: { x: this.player.x, y: this.player.y, hp: this.player.hp },
+          wave: this.wave,
+          score: this.score,
+          worldSeed: this.worldSeed,
+          bossTimer: this.bossTimer
+        },
+        time: Date.now()
+      });
+      localStorage.setItem('saves', JSON.stringify(saves));
+      this.$router.push('/');
+    },
+    loadSave(id) {
+      const saves = JSON.parse(localStorage.getItem('saves') || '[]');
+      const s = saves.find(s => String(s.id) === String(id));
+      if (s) {
+        Object.assign(this.player, s.state.player);
+        this.wave = s.state.wave;
+        this.score = s.state.score;
+        this.worldSeed = s.state.worldSeed;
+        this.bossTimer = s.state.bossTimer;
+      }
+    },
+    onGameOver() {
+      this.gameOver = true;
+      const scores = JSON.parse(localStorage.getItem('scores') || '[]');
+      scores.push({ score: this.score, time: Date.now() });
+      localStorage.setItem('scores', JSON.stringify(scores));
+    },
+    exitToHome() { this.$router.push('/'); },
     togglePause() { this.paused = !this.paused; },
     toggleAutoFire() { this.autoFire = !this.autoFire; },
     openSettings() {
@@ -755,8 +801,9 @@ export default {
       if (this.gamepad.connected) this.pollGamepad();
       if (this.gp.pause) { this.togglePause(); this.gp.pause = false; }
 
-      if (!this.paused && this.player.hp > 0) { this.update(dt); this.draw(); }
-      else { this.draw(); }
+      if (!this.paused && this.player.hp > 0) { this.update(dt); }
+      if (this.player.hp <= 0 && !this.gameOver) this.onGameOver();
+      this.draw();
 
       requestAnimationFrame(this.loop);
     },
@@ -1035,9 +1082,9 @@ export default {
       if (this.player.hp <= 0 || this.paused) {
         ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, screenW, screenH);
         ctx.fillStyle = '#fff'; ctx.font = 'bold 32px ui-sans-serif, system-ui'; ctx.textAlign = 'center';
-        ctx.fillText(this.paused ? '已暂停' : '你阵亡了', screenW / 2, screenH / 2 - 10);
+        ctx.fillText(this.paused ? this.$t('game.paused') : this.$t('game.youDied'), screenW / 2, screenH / 2 - 10);
         ctx.font = '16px ui-sans-serif, system-ui';
-        ctx.fillText('Start/Esc 切换暂停；点击【重新开始】再战', screenW / 2, screenH / 2 + 20);
+        ctx.fillText(this.$t('game.pressStart'), screenW / 2, screenH / 2 + 20);
       }
     },
     drawTerrain(camX, camY, w, h) {
@@ -1304,6 +1351,9 @@ export default {
 .actions button{ background:#1f2937; color:#e5e7eb; border:0; padding:6px 10px; border-radius:10px; cursor:pointer; }
 .actions button:hover{ filter:brightness(1.1); }
 
+.game-over{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,.7); color:#fff; padding:20px; border-radius:12px; z-index:4; display:flex; flex-direction:column; gap:12px; align-items:center; }
+.game-over button{ background:#1f2937; color:#e5e7eb; border:0; padding:6px 10px; border-radius:10px; cursor:pointer; }
+.game-over button:hover{ filter:brightness(1.1); }
 
 /* 触摸层（仅触屏渲染） */
 .touch-layer{ position:absolute; inset:0; z-index:1; pointer-events:auto; }
