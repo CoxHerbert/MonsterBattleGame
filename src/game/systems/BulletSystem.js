@@ -74,6 +74,9 @@ export default class BulletSystem {
               z.burnTime = Math.max(z.burnTime||0, b.burn.time||0);
               z.burnDps  = b.burn.dps || z.burnDps || 0;
             }
+            if (Math.random() < 0.25 && this.s.addBeamHit){
+              this.s.addBeamHit(cx, cy, b.dir);
+            }
             if (z.hp <= 0){
               this.onKill(z, j);
             }

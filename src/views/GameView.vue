@@ -199,6 +199,7 @@ export default {
 
       // entities
       bullets: [], zombies: [], particles: [], drops: [],
+      beamFx: { hits: [] }, // {x,y,dir,life,max}
       weaponSys: null,
       buffSys: null,
       bulletSys: null,
@@ -937,6 +938,7 @@ export default {
     update(dt) {
       // Shake 计时
       if (this.shake.t > 0) this.shake.t = Math.max(0, this.shake.t - dt*1000);
+      this.updateBeamFx(dt);
 
       // 相机
       const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
@@ -1169,33 +1171,45 @@ export default {
         ctx.globalAlpha = 1;
       }
 
-      // —— 激光（beam）按皮肤配色 —— //
+      // —— 激光（带纹理滚动 + 外发光） —— //
       for (const b of this.bullets) {
         if (b.type !== 'beam') continue;
-        const pal = this.skinPalette();
+
+        const pal = this.skinPalette ? this.skinPalette() : { beamGlow:'#d6b3ff', beamCore:'#cfa5ff' };
         const ex = b.x + Math.cos(b.dir)*b.range;
         const ey = b.y + Math.sin(b.dir)*b.range;
 
         // 外发光层
         ctx.save();
-        ctx.globalAlpha = 0.35;
+        ctx.globalAlpha = 0.32;
         ctx.strokeStyle = pal.beamGlow || '#d6b3ff';
         ctx.lineWidth = Math.max(1, (b.width||6) * 2.4);
         ctx.beginPath();
         ctx.moveTo(b.x, b.y);
         ctx.lineTo(ex, ey);
         ctx.stroke();
+        ctx.restore();
 
-        // 核心线
+        // 纹理滚动（虚线动画）
+        ctx.save();
         ctx.globalAlpha = 0.95;
         ctx.strokeStyle = pal.beamCore || '#cfa5ff';
         ctx.lineWidth = b.width || 6;
+        const dash = (b.width||6) * 2.0;
+        ctx.setLineDash([dash, dash]);
+        ctx.lineDashOffset = - (performance.now() * 0.25);
         ctx.beginPath();
         ctx.moveTo(b.x, b.y);
         ctx.lineTo(ex, ey);
         ctx.stroke();
-
         ctx.restore();
+      }
+
+      // —— 激光命中电弧 —— //
+      for (const h of this.beamFx.hits){
+        const k = Math.max(0, h.life / h.max);
+        const alpha = 0.35 + 0.55 * k;
+        this.drawElectricBurst(ctx, h.x, h.y, { bolts: 3, radius: 22 + 16*(1-k), jitter: 8, alpha });
       }
 
       // 僵尸（贴图 + 血条 + 数值HP）
@@ -1442,6 +1456,48 @@ export default {
           drawRing(R, nova.color, nova.line, t.alpha);
         }
       }
+    },
+
+    /* 命中 FX：记录命中点，供渲染层绘制电弧/火花 */
+    addBeamHit(x, y, dir){
+      if (this.beamFx.hits.length > 50) this.beamFx.hits.shift();
+      this.beamFx.hits.push({ x, y, dir: dir || 0, life: 0.12, max: 0.12 });
+      this.makeHitParticles(x, y, '#bde0ff');
+    },
+
+    /* 命中 FX 的生命周期 */
+    updateBeamFx(dt){
+      for (let i=this.beamFx.hits.length-1; i>=0; i--){
+        const h = this.beamFx.hits[i];
+        h.life -= dt;
+        if (h.life <= 0) this.beamFx.hits.splice(i,1);
+      }
+    },
+
+    /* 绘制电弧簇（短小抖动的折线） */
+    drawElectricBurst(ctx, x, y, { bolts=3, radius=22, jitter=10, alpha=0.9 } = {}){
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      for (let b=0; b<bolts; b++){
+        const segs = 4 + Math.floor(Math.random()*3);
+        let px = x, py = y;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        for (let s=0; s<segs; s++){
+          const ang = Math.random() * Math.PI * 2;
+          const len = radius / segs + (Math.random()-0.5)*2;
+          const nx = px + Math.cos(ang)*len + (Math.random()-0.5)*jitter;
+          const ny = py + Math.sin(ang)*len + (Math.random()-0.5)*jitter;
+          ctx.lineWidth = 1 + Math.max(0, (segs - s)) * 0.3;
+          ctx.strokeStyle = (s===0) ? '#eaf7ff' : (Math.random()<0.4 ? '#d0ecff' : '#98d5ff');
+          ctx.lineTo(nx, ny);
+          px = nx; py = ny;
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
     },
 
     /* ===== Minimap Alert（读取 ENEMY_VFX） ===== */
