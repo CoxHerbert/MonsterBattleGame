@@ -1013,7 +1013,8 @@ export default {
               z.hp -= dealt;
             }
           }
-          this.makeDeathBurst?.(b.x, b.y, '#ffcf6b');
+          const pal = this.skinPalette();
+          this.makeDeathBurst?.(b.x, b.y, pal.explosion || '#ffcf6b');
           this.sfxHit();
           this.bullets.splice(i,1);
           continue;
@@ -1132,6 +1133,34 @@ export default {
       if (this.score > this.bestScore) { this.bestScore = this.score; localStorage.setItem(LS_KEY, String(this.bestScore)); }
     },
 
+    /* ===== Skin Palette（根据当前武器 & 皮肤返回颜色方案） ===== */
+    skinPalette(){
+      const wid = (this.weaponSys && this.weaponSys.currentId) || (this.weapon && this.weapon.id) || 'mg';
+      const skin = (this.weaponSys && this.weaponSys.s && this.weaponSys.s.weapon && this.weaponSys.s.weapon.skinId) || (this.weapon && this.weapon.skinId) || 'default';
+
+      // 基础三款皮肤的颜色方案；需要更多就按此扩充
+      const palettes = {
+        mg: {
+          default: { bulletCore:'#ffffff', bulletGlow:'#7aa2ff', beamCore:'#cfa5ff', beamGlow:'#d6b3ff', rocket:'#ffb347', explosion:'#ffd166', playerDot:'#7fb7ff', playerArrow:'#d6e7ff' },
+          desert:  { bulletCore:'#fff5e6', bulletGlow:'#f59e0b', beamCore:'#fde68a', beamGlow:'#fbbf24', rocket:'#f59e0b', explosion:'#fcd34d', playerDot:'#f59e0b', playerArrow:'#fde68a' },
+          neon:    { bulletCore:'#e0ffff', bulletGlow:'#22d3ee', beamCore:'#a78bfa', beamGlow:'#22c55e', rocket:'#22c55e', explosion:'#34d399', playerDot:'#22d3ee', playerArrow:'#a78bfa' },
+        },
+        rocket: {
+          default: { bulletCore:'#ffffff', bulletGlow:'#ffb347', beamCore:'#cfa5ff', beamGlow:'#d6b3ff', rocket:'#ffb347', explosion:'#ffd166', playerDot:'#7fb7ff', playerArrow:'#d6e7ff' },
+          desert:  { bulletCore:'#fff5e6', bulletGlow:'#f59e0b', beamCore:'#fde68a', beamGlow:'#fbbf24', rocket:'#f59e0b', explosion:'#fcd34d', playerDot:'#f59e0b', playerArrow:'#fde68a' },
+          neon:    { bulletCore:'#e0ffff', bulletGlow:'#22c55e', beamCore:'#a78bfa', beamGlow:'#22d3ee', rocket:'#22c55e', explosion:'#34d399', playerDot:'#22d3ee', playerArrow:'#a78bfa' },
+        },
+        laser: {
+          default: { bulletCore:'#ffffff', bulletGlow:'#9cf',    beamCore:'#cfa5ff', beamGlow:'#d6b3ff', rocket:'#ffb347', explosion:'#ffd166', playerDot:'#7fb7ff', playerArrow:'#d6e7ff' },
+          desert:  { bulletCore:'#fff5e6', bulletGlow:'#fbbf24', beamCore:'#fde68a', beamGlow:'#f59e0b', rocket:'#f59e0b', explosion:'#fcd34d', playerDot:'#f59e0b', playerArrow:'#fde68a' },
+          neon:    { bulletCore:'#e0ffff', bulletGlow:'#22d3ee', beamCore:'#a78bfa', beamGlow:'#22c55e', rocket:'#22c55e', explosion:'#34d399', playerDot:'#22d3ee', playerArrow:'#a78bfa' },
+        }
+      };
+
+      const p = (palettes[wid] && palettes[wid][skin]) || palettes.mg.default;
+      return p;
+    },
+
     /* ===== Drawing ===== */
     draw() {
       const ctx = this.ctx;
@@ -1154,25 +1183,69 @@ export default {
         ctx.fillStyle = '#111'; ctx.fillText(d.icon, 0, 1); ctx.restore();
       }
 
-      // 子弹
+      // 子弹（按皮肤上色；敌方保留原色）
+      const pal = this.skinPalette();
       for (const b of this.bullets) {
-        if (b.type === 'beam') {
-          const ex = b.x + Math.cos(b.dir) * b.range;
-          const ey = b.y + Math.sin(b.dir) * b.range;
-          ctx.save(); ctx.globalAlpha = 0.85; ctx.strokeStyle = '#cfa5ff'; ctx.lineWidth = b.width;
-          ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(ex, ey); ctx.stroke(); ctx.restore();
-          continue;
+        // 激光另画（见下方 beam 绘制），这里跳过 beam
+        if (b.type === 'beam') continue;
+
+        let core = '#ffffff', glow = '#9cf';
+        if (b.from === 'player') {
+          // 玩家子弹：皮肤主色
+          if (b.explodeOnExpire) { // 火箭弹体
+            core = '#ffffff';
+            glow = pal.rocket || pal.bulletGlow;
+          } else if (b.burn) { // 燃烧弹
+            core = pal.bulletCore || '#ffffff';
+            glow = pal.bulletGlow || '#ffb347';
+          } else {
+            core = pal.bulletCore || '#ffffff';
+            glow = pal.bulletGlow || '#9cf';
+          }
+        } else {
+          // 敌方子弹：保持原配色或 b.color
+          glow = b.color ? b.color : '#f99';
         }
-        const color = b.color ? b.color : (b.burn ? '#ffb347' : (b.from === 'enemy' ? '#f99' : '#9cf'));
+
         const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 3);
-        grad.addColorStop(0, '#fff');
-        grad.addColorStop(1, color);
+        grad.addColorStop(0, core);
+        grad.addColorStop(1, glow);
+
         ctx.globalAlpha = (b.pierce && b.pierce > 0) ? 0.55 : 1;
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
+      }
+
+      // —— 激光（beam）按皮肤配色 —— //
+      for (const b of this.bullets) {
+        if (b.type !== 'beam') continue;
+        const pal = this.skinPalette();
+        const ex = b.x + Math.cos(b.dir)*b.range;
+        const ey = b.y + Math.sin(b.dir)*b.range;
+
+        // 外发光层
+        ctx.save();
+        ctx.globalAlpha = 0.35;
+        ctx.strokeStyle = pal.beamGlow || '#d6b3ff';
+        ctx.lineWidth = Math.max(1, (b.width||6) * 2.4);
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.y);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+
+        // 核心线
+        ctx.globalAlpha = 0.95;
+        ctx.strokeStyle = pal.beamCore || '#cfa5ff';
+        ctx.lineWidth = b.width || 6;
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.y);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+
+        ctx.restore();
       }
 
       // 僵尸（贴图 + 血条 + 数值HP）
@@ -1342,12 +1415,18 @@ export default {
         }
       }
 
+      const palMM = this.skinPalette();
       // 玩家点
-      ctx.beginPath(); ctx.fillStyle = '#7fb7ff'; ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath();
+      ctx.fillStyle = palMM.playerDot || '#7fb7ff';
+      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.fill();
+
       // 朝向箭头
       ctx.save(); ctx.translate(cx, cy); ctx.rotate(this.player.dir);
       ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-4, 3); ctx.lineTo(-4, -3); ctx.closePath();
-      ctx.fillStyle = '#d6e7ff'; ctx.fill(); ctx.restore();
+      ctx.fillStyle = palMM.playerArrow || '#d6e7ff';
+      ctx.fill(); ctx.restore();
 
       ctx.restore();
     },
