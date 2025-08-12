@@ -6,6 +6,7 @@
       <button @click="start">{{ $t('home.start') }}</button>
       <button v-if="saves.length" @click="openSaves">{{ $t('home.continue') }}</button>
       <button @click="openSettings">{{ $t('home.settings') }}</button>
+      <button @click="startTD">Tower Defense</button>
     </div>
     <div class="board" v-if="scores.length">
       <h2>{{ $t('home.leaderboard') }}</h2>
@@ -41,7 +42,8 @@ export default {
     start() { this.$router.push('/game') },
     openSettings() { this.settingsOpen = true },
     openSaves() { this.savesOpen = true },
-    continueGame(id) { this.$router.push({ path: '/game', query: { save: id } }) }
+    continueGame(id) { this.$router.push({ path: '/game', query: { save: id } }) },
+    startTD() { this.$router.push('/tower') }
   }
 }
 </script>
