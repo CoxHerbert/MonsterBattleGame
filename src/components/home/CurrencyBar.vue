@@ -2,7 +2,7 @@
   <div class="bar">
     <span>🪙 {{ $t('home.currency.gold') }}: {{ gold }}</span>
     <span>💠 {{ $t('home.currency.core') }}: {{ core }}</span>
-    <button @click="$emit('switchLang')">{{ $i18n.locale.value.toUpperCase() }}</button>
+    <button @click="$emit('switchLang')">{{ $i18n.locale.toUpperCase() }}</button>
   </div>
 </template>
 <script>

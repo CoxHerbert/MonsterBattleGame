@@ -85,8 +85,8 @@ export default {
   },
   methods:{
     switchLang(){
-      const next = (this.$i18n.locale.value === 'zh-CN') ? 'en' : 'zh-CN'
-      this.$i18n.locale.value = next
+      const next = (this.$i18n.locale === 'zh-CN') ? 'en' : 'zh-CN'
+      this.$i18n.locale = next
       localStorage.setItem('lang', next)
       this.tabs = [
         { key:'chapters', label: this.$t('home.chapters') },
