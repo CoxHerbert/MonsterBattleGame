@@ -70,6 +70,24 @@
     "boss_tyrant": "Tyrant",
     "boss_matriarch": "Matriarch"
   },
+  "settings": {
+    "unmute": "Unmute",
+    "mute": "Mute",
+    "volume": "Volume",
+    "bgmOffTitle": "Turn off BGM",
+    "bgmOnTitle": "Turn on BGM",
+    "bgmOnLabel": "BGM On",
+    "bgmOffLabel": "BGM Off",
+    "radarOn": "Minimap On",
+    "radarOff": "Minimap Off",
+    "mapSize": "Map Size",
+    "small": "Small",
+    "medium": "Medium",
+    "large": "Large",
+    "saveAndExit": "Save & Exit",
+    "restart": "Restart",
+    "close": "Close"
+  },
   "fx": {
     "poison": "Poison",
     "burn": "Burn",

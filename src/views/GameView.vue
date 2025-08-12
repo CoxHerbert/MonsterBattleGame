@@ -1045,6 +1045,7 @@ export default {
       // 僵尸
       for (let i = this.zombies.length - 1; i >= 0; i--) {
         const z = this.zombies[i];
+        if (z.hp <= 0) { this.zombies.splice(i, 1); this.onKill(z); continue; }
         if (z.burnTime > 0) { z.burnTime -= dt; z.hp -= z.burnDps * dt; if (z.hp <= 0) { this.zombies.splice(i, 1); this.onKill(z); continue; } }
         if (z.invuln > 0) z.invuln -= dt;
         if (z.elite) { z.dashCd -= dt; if (z.dashCd <= 0) { z.dashing = true; z.dashTime = 0.45; z.dashCd = 3 + Math.random() * 1.5; } if (z.dashing) { z.dashTime -= dt; if (z.dashTime <= 0) z.dashing = false; } }

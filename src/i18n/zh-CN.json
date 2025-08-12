@@ -82,6 +82,24 @@
     "boss_tyrant": "暴君",
     "boss_matriarch": "母巢"
   },
+  "settings": {
+    "unmute": "取消静音",
+    "mute": "静音",
+    "volume": "音量",
+    "bgmOffTitle": "关闭背景音乐",
+    "bgmOnTitle": "开启背景音乐",
+    "bgmOnLabel": "BGM开",
+    "bgmOffLabel": "BGM关",
+    "radarOn": "小地图开",
+    "radarOff": "小地图关",
+    "mapSize": "小地图尺寸",
+    "small": "小",
+    "medium": "中",
+    "large": "大",
+    "saveAndExit": "保存并退出",
+    "restart": "重新开始",
+    "close": "关闭"
+  },
   "fx": {
     "poison": "中毒",
     "burn": "燃烧",
