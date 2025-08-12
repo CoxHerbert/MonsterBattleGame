@@ -1,126 +1,107 @@
 <template>
-  <div class="td-wrapper">
-    <div class="hud">
-      <div>Gold: {{ economy.gold }} Life: {{ life }} Wave: {{ wave }}</div>
-      <button @click="startWave" :disabled="running">Start Wave</button>
-    </div>
+  <div class="game-view">
     <canvas ref="canvas" class="td-canvas"></canvas>
+    <HudBar
+      :gold="gold"
+      :life="life"
+      :wave="wave"
+      :running="gameRunning"
+      :paused="gamePaused"
+      @start="startWave"
+      @toggle-pause="togglePause"
+      @speed="setSpeed"
+      @open-settings="openSettings"
+    />
+    <TowerPanel
+      class="tower-panel"
+      :towers="towers"
+      :gold="gold"
+      :selected="selectedTower"
+      @select="selectTower"
+    />
+    <MiniMap
+      v-if="minimapOpen"
+      class="mini-map"
+      :width="level.width"
+      :height="level.height"
+      :paths="level.paths"
+      :enemies="enemies"
+    />
+    <SettingsDialog
+      v-if="showSettings"
+      @close="closeSettings"
+      @restart="restart"
+    />
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, ref } from 'vue'
-import level1 from '../core/data/levels/level01.json'
-import enemiesData from '../core/data/enemies.json'
+import HudBar from '../components/HudBar.vue'
+import TowerPanel from '../components/TowerPanel.vue'
+import MiniMap from '../components/MiniMap.vue'
+import SettingsDialog from '../components/SettingsDialog.vue'
+import { game } from '../core/engine/Game'
+import level from '../core/data/levels/level01.json'
 import towersData from '../core/data/towers.json'
-import { EnemyManager } from '../core/gameplay/EnemyManager'
-import { WaveManager } from '../core/gameplay/WaveManager'
-import { Economy } from '../core/gameplay/Economy'
-import { bindEnemyManager } from '../core/gameplay/Targeting'
-import { TowerManager } from '../core/gameplay/TowerManager'
-import { Renderer } from '../core/engine/Renderer'
-import { Input } from '../core/engine/Input'
-import type { LevelConfig, EnemyDef, TowerDef } from '../core/data/types'
+import type { LevelConfig, TowerDef } from '../core/data/types'
 
-export default defineComponent({
+export default {
   name: 'GameView',
-  setup() {
-    const cfg = level1 as LevelConfig
-    const canvas = ref<HTMLCanvasElement | null>(null)
-    const economy = new Economy()
-    economy.gain(cfg.startGold)
-    const life = ref(cfg.startLife)
-    const wave = ref(1)
-
-    const enemyDefs: Record<string, EnemyDef> = {}
-    for (const d of enemiesData as EnemyDef[]) enemyDefs[d.id] = d
-    const enemies = new EnemyManager(cfg, enemyDefs, () => { life.value-- }, g => economy.gain(g))
-    bindEnemyManager(enemies)
-    const waves = new WaveManager(enemies, r => { if (r) economy.gain(r) })
-    waves.init(cfg)
-
-    const towerDefs: Record<string, TowerDef> = {}
-    for (const t of towersData as TowerDef[]) towerDefs[t.id] = t
-    const towers = new TowerManager(towerDefs)
-    const selectedTower = towerDefs['arrow']
-
-    const running = ref(false)
-    const paused = ref(false)
-    const speed = ref(1)
-
-    function startWave() {
-      if (!waves.isWaveRunning()) {
-        waves.startNextWave()
-        running.value = true
-      }
+  components: { HudBar, TowerPanel, MiniMap, SettingsDialog },
+  data() {
+    return {
+      gold: 0,
+      life: 0,
+      wave: 1,
+      showSettings: false,
+      selectedTower: null as string | null,
+      enemies: [] as any[],
+      level: level as LevelConfig,
+      towers: towersData as TowerDef[]
     }
-
-    onMounted(() => {
-      if (!canvas.value) return
-      const renderer = new Renderer()
-      renderer.init(canvas.value, cfg)
-      const input = new Input(canvas.value, cfg.tileSize)
-      input.onPointer((gx, gy) => {
-        renderer.highlightTile(gx, gy)
-        const cx = gx * cfg.tileSize + cfg.tileSize / 2
-        const cy = gy * cfg.tileSize + cfg.tileSize / 2
-        renderer.drawRangePreview(cx, cy, selectedTower.range)
-      })
-      input.onRightClick(() => renderer.hideRangePreview())
-      input.onClick((gx, gy) => {
-        const cx = gx * cfg.tileSize + cfg.tileSize / 2
-        const cy = gy * cfg.tileSize + cfg.tileSize / 2
-        if (economy.spend(selectedTower.cost)) {
-          towers.placeTower(selectedTower.id, cx, cy)
-          renderer.drawTowers(towers.towers)
-        }
-      })
-      input.onCommand(cmd => {
-        switch (cmd) {
-          case 'toggle-pause':
-            paused.value = !paused.value
-            break
-          case 'speed1':
-            speed.value = 1
-            break
-          case 'speed2':
-            speed.value = 2
-            break
-          case 'speed3':
-            speed.value = 3
-            break
-          case 'restart':
-            location.reload()
-            break
-        }
-      })
-
-      let last = performance.now()
-      const loop = (now: number) => {
-        let dt = (now - last) / 1000
-        last = now
-        if (!paused.value) {
-          dt *= speed.value
-          waves.update(dt)
-          enemies.update(dt)
-          towers.update(dt)
-          renderer.drawEnemies(enemies.enemies)
-          renderer.drawTowers(towers.towers)
-          if (!waves.isWaveRunning()) running.value = false
-          wave.value = waves.currentWave + 1
-        }
-        requestAnimationFrame(loop)
-      }
-      requestAnimationFrame(loop)
+  },
+  computed: {
+    minimapOpen() { return this.$store.state.settings.minimapOpen },
+    gameRunning() { return game.running },
+    gamePaused() { return game.paused }
+  },
+  mounted() {
+    const canvas = this.$refs.canvas as HTMLCanvasElement
+    game.init(canvas, this.level, {
+      gold: v => (this.gold = v),
+      life: v => (this.life = v),
+      wave: v => (this.wave = v),
+      enemies: list => (this.enemies = list)
     })
-
-    return { canvas, economy, life, wave, startWave, running }
+  },
+  beforeUnmount() {
+    game.destroy()
+  },
+  methods: {
+    startWave() { game.startNextWave() },
+    togglePause() { game.togglePause() },
+    setSpeed(s: number) { game.setSpeed(s) },
+    selectTower(id: string | null) {
+      this.selectedTower = id
+      game.setBuildTower(id)
+    },
+    openSettings() {
+      this.showSettings = true
+      game.pause()
+    },
+    closeSettings() {
+      this.showSettings = false
+      game.resume()
+    },
+    restart() { location.reload() }
   }
-})
+}
 </script>
 
 <style scoped>
-.td-wrapper { display: flex; flex-direction: column; align-items: center; color: #fff; }
-.hud { margin-bottom: 8px; }
-.td-canvas { background: #0e0f12; }
+.game-view { position: relative; width: 100%; height: 100%; }
+.td-canvas { background: #0e0f12; display:block; margin:0 auto; }
+.hud-bar { position:absolute; top:0; left:0; right:0; }
+.tower-panel { position:absolute; left:0; top:50px; }
+.mini-map { position:absolute; right:0; bottom:0; }
 </style>
