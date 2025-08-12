@@ -1,0 +1,26 @@
+<!-- src/assets/svg/towers/tower_tesla_lvl1.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g-coil" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#b0bec5"/>
+      <stop offset="1" stop-color="#78909c"/>
+    </linearGradient>
+    <linearGradient id="g-energy" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="var(--tower-primary, #7e57c2)"/>
+      <stop offset="1" stop-color="var(--tower-accent, #ab47bc)"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="transparent"/>
+  <ellipse cx="32" cy="52" rx="16" ry="6.5" fill="#000" opacity="0.25"/>
+
+  <!-- base -->
+  <rect x="19" y="44" width="26" height="6" rx="2" fill="url(#g-coil)"/>
+  <rect x="22" y="40" width="20" height="5" rx="2" fill="#263238" opacity="0.35"/>
+
+  <!-- coil column -->
+  <g id="coil" transform="translate(32 26)">
+    <rect x="-4" y="-8" width="8" height="16" rx="2" fill="url(#g-coil)"/>
+    <circle cx="0" cy="-12" r="6" fill="url(#g-energy)" stroke="#4a148c" stroke-width="1.2"/>
+    <circle cx="0" cy="-12" r="2.8" fill="#ede7f6"/>
+  </g>
+</svg>

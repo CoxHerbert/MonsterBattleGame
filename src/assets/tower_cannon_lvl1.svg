@@ -1,0 +1,34 @@
+<!-- src/assets/svg/towers/tower_cannon_lvl1.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g-base" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="var(--metal, #90a4ae)"/>
+      <stop offset="1" stop-color="var(--metal-dark, #607d8b)"/>
+    </linearGradient>
+    <linearGradient id="g-barrel" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#cfd8dc"/>
+      <stop offset="1" stop-color="#90a4ae"/>
+    </linearGradient>
+    <linearGradient id="g-ring" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="var(--tower-primary, #ffca28)"/>
+      <stop offset="1" stop-color="var(--tower-accent, #fb8c00)"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="transparent"/>
+  <ellipse cx="32" cy="52" rx="17" ry="7" fill="#000" opacity="0.25"/>
+
+  <rect x="17" y="44" width="30" height="7" rx="2" fill="url(#g-base)"/>
+  <rect x="20" y="40" width="24" height="5" rx="2" fill="#263238" opacity="0.35"/>
+
+  <!-- turret -->
+  <g id="turret" transform="translate(32 24)">
+    <!-- mount ring -->
+    <circle r="9" fill="url(#g-ring)"/>
+    <circle r="6.5" fill="#263238"/>
+    <!-- barrel (rotate this组以瞄准) -->
+    <g id="barrel">
+      <rect x="-2" y="-2" width="24" height="4" rx="2" fill="url(#g-barrel)" stroke="#455a64" stroke-width="1"/>
+      <circle cx="22" cy="0" r="3" fill="#263238"/>
+    </g>
+  </g>
+</svg>

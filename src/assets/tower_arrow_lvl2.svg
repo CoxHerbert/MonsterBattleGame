@@ -1,0 +1,35 @@
+<!-- src/assets/svg/towers/tower_arrow_lvl2.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g-body2" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="var(--metal, #8ea0ad)"/>
+      <stop offset="1" stop-color="var(--metal-dark, #54636d)"/>
+    </linearGradient>
+    <linearGradient id="g-hl2" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="var(--tower-primary, #42a5f5)"/>
+      <stop offset="1" stop-color="var(--tower-accent, #26c6da)"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="transparent"/>
+  <ellipse cx="32" cy="52" rx="16" ry="7" fill="#000" opacity="0.25"/>
+
+  <g id="base">
+    <rect x="18" y="44" width="28" height="6" rx="2" fill="url(#g-body2)"/>
+    <rect x="20" y="40" width="24" height="5" rx="2" fill="#2c3e50" opacity="0.35"/>
+  </g>
+
+  <g id="column">
+    <rect x="26" y="25" width="12" height="16" rx="2" fill="url(#g-body2)"/>
+    <rect x="24" y="23" width="16" height="3" rx="1.5" fill="#cfd8dc"/>
+  </g>
+
+  <g id="head" transform="translate(32 21)">
+    <circle r="9" fill="#1b242a"/>
+    <circle r="7" fill="url(#g-hl2)"/>
+    <!-- twin launcher -->
+    <g id="launcher" fill="#e3f2fd" stroke="#01579b" stroke-width="1">
+      <path d="M-6 -9 L-1 -4 L-3 -4 L-3 6 L-7 6 L-7 -4 L-11 -4 Z"/>
+      <path d="M6 -9 L11 -4 L7 -4 L7 6 L3 6 L3 -4 L-1 -4 Z"/>
+    </g>
+  </g>
+</svg>
