@@ -18,6 +18,13 @@
         <span v-if="!assets.ready" class="pad">🖼️ {{ $t('game.loadingImages') }}</span>
       </div>
 
+      <div class="buffs" v-if="permanentBuffs.length">
+        <div class="buff" v-for="b in permanentBuffs" :key="b.id">
+          <span class="tag">{{ b.name }}</span>
+          <span class="time">Lv {{ b.level }}</span>
+        </div>
+      </div>
+
       <div class="buffs" v-if="activeBuffs.length">
         <div class="buff" v-for="b in activeBuffs" :key="b.kind">
           <span class="tag">{{ b.kind }}</span>
@@ -43,6 +50,15 @@
       <p>{{ $t('game.gameOver', { score }) }}</p>
       <button @click="restart">{{ $t('game.restart') }}</button>
       <button @click="exitToHome">{{ $t('game.backHome') }}</button>
+    </div>
+
+    <div v-if="augmentChoices.length" class="augment-select">
+      <p>{{ $t('game.chooseAugment') }}</p>
+      <div class="options">
+        <button v-for="a in augmentChoices" :key="a.id" @click="pickAugment(a)">
+          {{ $t(a.nameKey) }}
+        </button>
+      </div>
     </div>
 
     <!-- 触控层（仅触屏设备渲染） -->
@@ -102,6 +118,14 @@ const ELITE_SVG = encodeURIComponent(`
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t^=t+Math.imul(t^t>>>7,61|t);return((t^t>>>14)>>>0)/4294967296;};}
 function seedFrom(cx, cy, worldSeed){const s=((cx*73856093)^(cy*19349663)^worldSeed)>>>0;return s>>>0;}
 
+// 永久增益（Augments）定义
+const AUGMENTS = [
+  { id: 'atk',  nameKey: 'game.augment.atk',  apply(g) { g.player.damage *= 1.2; } },
+  { id: 'aspd', nameKey: 'game.augment.aspd', apply(g) { g.player.fireInterval *= 0.9; } },
+  { id: 'speed', nameKey: 'game.augment.speed', apply(g) { g.player.baseSpeed *= 1.1; } },
+  { id: 'hp',   nameKey: 'game.augment.hp',   apply(g) { g.player.maxHp += 20; g.player.hp += 20; } }
+];
+
 export default {
   name: 'ZombieGame',
   components: { SettingsPanel },
@@ -118,7 +142,19 @@ export default {
       isNativeFullscreen: false, isPseudoFullscreen: false,
 
       // player（世界坐标）
-      player: { x: 0, y: 0, r: 14, baseSpeed: 220, speed: 220, hp: 100, dir: 0, fireCooldown: 0 },
+      player: {
+        x: 0,
+        y: 0,
+        r: 14,
+        baseSpeed: 220,
+        speed: 220,
+        hp: 100,
+        maxHp: 100,
+        dir: 0,
+        fireCooldown: 0,
+        fireInterval: 0.12,
+        damage: 24
+      },
 
       // inputs
       keys: new Set(),
@@ -152,6 +188,10 @@ export default {
       // spawn
       spawnTimer: 0, spawnInterval: 1.0, wave: 1,
       bossTimer: 180, bossInterval: 180,
+      bossStage: 1, // 当前要生成的Boss阶段
+      augmentChoices: [],
+      permaBuffs: { atk: 0, aspd: 0, speed: 0, hp: 0 },
+      spawnAfterChoice: false,
 
       // score
       score: 0, bestScore: 0, combo: 1, comboTimer: 0,
@@ -204,6 +244,15 @@ export default {
       if (this.buff.pierce > 0) list.push({ kind: t('game.buff.pierce'), left: this.buff.pierce });
       if (this.buff.bounce > 0) list.push({ kind: t('game.buff.bounce'), left: this.buff.bounce });
       if (this.buff.split > 0)  list.push({ kind: t('game.buff.split'), left: this.buff.split });
+      return list;
+    },
+    permanentBuffs() {
+      const t = this.$t;
+      const list = [];
+      for (const k in this.permaBuffs) {
+        const lv = this.permaBuffs[k];
+        if (lv > 0) list.push({ id: k, name: t(`game.augment.${k}`), level: lv });
+      }
       return list;
     },
     isAnyFullscreen() { return this.isNativeFullscreen || this.isPseudoFullscreen; }
@@ -583,12 +632,18 @@ export default {
     },
     reset() {
       this.player.x = 0; this.player.y = 0;
-      this.player.hp = 100; this.player.speed = this.player.baseSpeed;
+      this.player.baseSpeed = 220;
+      this.player.speed = this.player.baseSpeed;
+      this.player.hp = 100; this.player.maxHp = 100;
+      this.player.fireInterval = 0.12; this.player.damage = 24;
       this.score = 0; this.combo = 1; this.comboTimer = 0;
       this.wave = 1; this.spawnInterval = 1.0; this.spawnTimer = 0;
       this.bullets = []; this.zombies = []; this.particles = []; this.drops = [];
       this.buff.speed = 0; this.buff.spread = 0; this.buff.burn = 0; this.buff.pierce = 0; this.buff.bounce = 0; this.buff.split = 0;
-      this.bossTimer = this.bossInterval;
+      this.bossTimer = this.bossInterval; this.bossStage = 1;
+      this.augmentChoices = [];
+      this.permaBuffs = { atk: 0, aspd: 0, speed: 0, hp: 0 };
+      this.spawnAfterChoice = false;
       this.paused = false; this.gameOver = false; this.lastTime = performance.now();
       this.touch.left.active = false; this.touch.left.id = -1;
       this.touch.right.active = false; this.touch.right.id = -1;
@@ -857,7 +912,11 @@ export default {
       const touchFire = (this.isTouchDevice && this.touch.right.active && (this.touch.right.mag > 0.25 || (this.autoAim.highlight && this.touch.right.mag > this.autoAim.minStickToFire)));
       const shouldFire = this.autoFire || this.mouse.down || this.gp.fire || touchFire;
       this.player.fireCooldown = Math.max(0, this.player.fireCooldown - dt);
-      if (shouldFire && this.player.fireCooldown <= 0) { this.fireBullet(); this.player.fireCooldown = (this.buff.spread > 0 ? 0.10 : 0.12); }
+      if (shouldFire && this.player.fireCooldown <= 0) {
+        this.fireBullet();
+        const base = this.player.fireInterval * (this.buff.spread > 0 ? 0.83 : 1.0);
+        this.player.fireCooldown = base;
+      }
 
       // 子弹
       for (let i = this.bullets.length - 1; i >= 0; i--) {
@@ -1066,7 +1125,7 @@ export default {
       const phw = 56, phh = 7, pbx = p.x - phw/2, pby = p.y - p.r - 18;
       ctx.fillStyle = 'rgba(0,0,0,0.45)'; this.roundRect(ctx, pbx, pby, phw, phh, 4); ctx.fill();
       ctx.save(); ctx.beginPath(); this.roundRect(ctx, pbx, pby, phw, phh, 4); ctx.clip();
-      ctx.fillStyle = '#1f8fff'; ctx.fillRect(pbx, pby, Math.max(0, Math.min(1, p.hp/100))*phw, phh); ctx.restore();
+      ctx.fillStyle = '#1f8fff'; ctx.fillRect(pbx, pby, Math.max(0, Math.min(1, p.hp/p.maxHp))*phw, phh); ctx.restore();
       ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; this.roundRect(ctx, pbx, pby, phw, phh, 4); ctx.stroke();
 
       // 粒子
@@ -1228,7 +1287,7 @@ export default {
           y: muzzleY,
           dir,
           speed: 740,
-          dmg: 24 * (shots > 1 ? 0.65 : 1),
+          dmg: this.player.damage * (shots > 1 ? 0.65 : 1),
           life: 0.9,
           from: 'player',
           pierce: this.buff.pierce > 0 ? 2 : 0,
@@ -1263,14 +1322,17 @@ export default {
       }
     },
     spawnBoss() {
+      const stage = this.bossStage;
       const ang = Math.random() * Math.PI * 2; const r = 600 + Math.random() * 200;
       const x = this.player.x + Math.cos(ang) * r; const y = this.player.y + Math.sin(ang) * r;
-      const hp = 1200 + this.wave * 80;
-      const speed = 60 + this.wave * 2;
-      const dmg = 35 + this.wave * 1.5;
-      this.zombies.push({ x, y, r: 28, hp, maxHp: hp, speed, dmg, color: '#ff4757', elite: true, boss: true, dashing:false, dashCd: 2, dashTime:0, ghost:false, invuln:0, ranged:true, shotCd:1.5, burnTime:0, burnDps:0 });
+      const hp = (1200 + this.wave * 80) * (1 + (stage - 1) * 0.5);
+      const speed = (60 + this.wave * 2) * (1 + (stage - 1) * 0.2);
+      const dmg = (35 + this.wave * 1.5) * (1 + (stage - 1) * 0.25);
+      this.zombies.push({ x, y, r: 28, hp, maxHp: hp, speed, dmg, color: '#ff4757', elite: true, boss: true, stage, dashing:false, dashCd: 2, dashTime:0, ghost:false, invuln:0, ranged:true, shotCd:1.5, burnTime:0, burnDps:0 });
+      this.bossTimer = this.bossInterval;
     },
     onKill(z) {
+      if (z.boss) { this.handleBossDefeated(z.stage); return; }
       const gain = Math.round(10 + z.maxHp * 0.1);
       this.combo = Math.min(10, this.combo + 1); this.comboTimer = 2.2;
       this.score += gain * this.combo;
@@ -1281,6 +1343,33 @@ export default {
         const type = types[Math.floor(Math.random()*types.length)];
         this.spawnDrop(z.x, z.y, type);
       }
+    },
+    handleBossDefeated(stage) {
+      this.augmentChoices = this.getAugmentOptions(3);
+      this.paused = true;
+      if (stage < 3) {
+        this.bossStage = stage + 1;
+        this.spawnAfterChoice = true;
+      } else {
+        this.bossStage = 1;
+        this.spawnAfterChoice = false;
+        this.bossTimer = this.bossInterval;
+      }
+    },
+    getAugmentOptions(n) {
+      const opts = [];
+      while (opts.length < n) {
+        const a = AUGMENTS[Math.floor(Math.random() * AUGMENTS.length)];
+        if (!opts.includes(a)) opts.push(a);
+      }
+      return opts;
+    },
+    pickAugment(a) {
+      a.apply(this);
+      this.permaBuffs[a.id]++;
+      this.augmentChoices = [];
+      this.paused = false;
+      if (this.spawnAfterChoice) this.spawnBoss();
     },
     spawnDrop(x, y, type) {
       const map = {
@@ -1295,7 +1384,7 @@ export default {
       const cfg = map[type]; this.drops.push({ type, x, y, drawY:y, r:13, life:10, bob:0, icon:cfg.icon, color:cfg.color });
     },
     applyDrop(type) {
-      if (type==='heal') this.player.hp = Math.min(100, this.player.hp + 35);
+      if (type==='heal') this.player.hp = Math.min(this.player.maxHp, this.player.hp + 35);
       if (type==='speed') this.buff.speed = Math.max(this.buff.speed, 8);
       if (type==='spread') this.buff.spread = Math.max(this.buff.spread, 10);
       if (type==='burn') this.buff.burn = Math.max(this.buff.burn, 10);
@@ -1354,6 +1443,11 @@ export default {
 .game-over{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,.7); color:#fff; padding:20px; border-radius:12px; z-index:4; display:flex; flex-direction:column; gap:12px; align-items:center; }
 .game-over button{ background:#1f2937; color:#e5e7eb; border:0; padding:6px 10px; border-radius:10px; cursor:pointer; }
 .game-over button:hover{ filter:brightness(1.1); }
+
+.augment-select{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,.7); color:#fff; padding:20px; border-radius:12px; z-index:4; display:flex; flex-direction:column; gap:12px; align-items:center; }
+.augment-select .options{ display:flex; gap:8px; flex-wrap:wrap; }
+.augment-select button{ background:#1f2937; color:#e5e7eb; border:0; padding:6px 10px; border-radius:10px; cursor:pointer; }
+.augment-select button:hover{ filter:brightness(1.1); }
 
 /* 触摸层（仅触屏渲染） */
 .touch-layer{ position:absolute; inset:0; z-index:1; pointer-events:auto; }
