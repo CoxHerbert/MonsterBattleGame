@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>:root{--c-main:#1d4ed8;--c-accent:#93c5fd;--c-dark:#0b1220;--c-lite:#f1f5f9}</style>
+  <ellipse cx="32" cy="48" rx="18" ry="8" fill="rgba(0,0,0,.3)"/>
+  <path d="M15 46h34l5-7-5-7H15l-5 7 5 7Z" fill="#111827"/>
+  <path d="M18 44h28l3-4-3-4H18l-3 4 3 4Z" fill="#374151"/>
+  <g transform="translate(0,-6)">
+    <rect x="22" y="22" width="20" height="20" rx="5" fill="var(--c-main)" stroke="var(--c-dark)" stroke-width="2"/>
+    <rect x="24" y="24" width="16" height="8" rx="2" fill="var(--c-accent)"/>
+    <!-- dual-barrel turret -->
+    <g transform="translate(32,26)">
+      <circle r="8" fill="var(--c-accent)" stroke="var(--c-dark)" stroke-width="2"/>
+      <rect x="7" y="-4" width="18" height="3" rx="1.5" fill="var(--c-lite)" stroke="var(--c-dark)" stroke-width="2"/>
+      <rect x="7" y="1" width="18" height="3" rx="1.5" fill="var(--c-lite)" stroke="var(--c-dark)" stroke-width="2"/>
+      <polygon points="26,-2.5 21,-4.5 21,-0.5" fill="var(--c-dark)"/>
+      <polygon points="26,2.5 21,0.5 21,4.5" fill="var(--c-dark)"/>
+    </g>
+    <!-- armor plates -->
+    <path d="M20 40h24l-2 4H22l-2-4Z" fill="#475569"/>
+  </g>
+</svg>

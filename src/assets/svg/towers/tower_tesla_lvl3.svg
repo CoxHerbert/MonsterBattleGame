@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>:root{--c-main:#5b21b6;--c-accent:#c4b5fd;--c-dark:#17134a;--c-lite:#f5f3ff}</style>
+  <ellipse cx="32" cy="48" rx="18" ry="8" fill="rgba(0,0,0,.3)"/>
+  <path d="M15 46h34l5-7-5-7H15l-5 7 5 7Z" fill="#191536"/>
+  <path d="M18 44h28l3-4-3-4H18l-3 4 3 4Z" fill="#2b2556"/>
+  <rect x="25" y="28" width="14" height="16" rx="4" fill="var(--c-main)" stroke="var(--c-dark)" stroke-width="2"/>
+  <!-- triple coils -->
+  <rect x="20" y="30" width="4" height="14" rx="2" fill="var(--c-accent)"/>
+  <rect x="30" y="30" width="4" height="14" rx="2" fill="var(--c-accent)"/>
+  <rect x="40" y="30" width="4" height="14" rx="2" fill="var(--c-accent)"/>
+  <g transform="translate(32,22)">
+    <circle r="9" fill="var(--c-accent)" stroke="var(--c-dark)" stroke-width="2"/>
+    <path d="M-6 0 L-2 -4 L1 5 L4 -3 L7 2" fill="none" stroke="var(--c-lite)" stroke-width="2"/>
+  </g>
+</svg>

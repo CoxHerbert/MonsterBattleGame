@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    :root{ --c-dark:#1e293b; --c-lite:#94a3b8; --c-main:#3b82f6; }
+  </style>
+  <defs>
+    <radialGradient id="g" cx="50%" cy="60%" r="60%">
+      <stop offset="0" stop-color="#000" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- ground shadow -->
+  <ellipse cx="32" cy="46" rx="18" ry="8" fill="url(#g)"/>
+  <!-- pad -->
+  <path d="M16 44h32l4-6-4-6H16l-4 6 4 6Z" fill="var(--c-dark)"/>
+  <path d="M18 42h28l3-4-3-4H18l-3 4 3 4Z" fill="#475569"/>
+  <path d="M20 40h24l2-2-2-2H20l-2 2 2 2Z" fill="var(--c-lite)"/>
+</svg>
