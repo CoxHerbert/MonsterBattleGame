@@ -5,6 +5,12 @@ export interface LevelConfig {
   rows: number
   tileSize: number
   path: PathPoint[]
+  waves: Wave[]
+}
+
+export interface Wave {
+  count: number
+  interval: number
 }
 
 export const level1: LevelConfig = {
@@ -16,5 +22,9 @@ export const level1: LevelConfig = {
     { x: 4, y: 4 },
     { x: 4, y: 8 },
     { x: 9, y: 8 }
+  ],
+  waves: [
+    { count: 5, interval: 1 },
+    { count: 8, interval: 0.8 }
   ]
 }
