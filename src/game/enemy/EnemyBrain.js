@@ -83,7 +83,8 @@ export default class EnemyBrain {
       const dealt = dmg * (falloff + (1 - falloff)*ratio);
       this.s.player.hp -= dealt;
     }
-    this.s.makeDeathBurst?.(z.x, z.y, '#ffcf6b'); this.s.sfxHit?.();
+    const pal = this.s.skinPalette?.() || {};
+    this.s.makeDeathBurst?.(z.x, z.y, pal.explosion || '#ffcf6b'); this.s.sfxHit?.();
   }
 
   _bossMatriarch(z, dt){

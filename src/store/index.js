@@ -17,7 +17,9 @@ export default createStore({
       minimapOpen: true,
       minimapAlerts: true,
       minimapSize: 'medium',
-      telegraphOn: true
+      telegraphOn: true,
+      effectsQuality: 'high',
+      screenShake: true
     }
   }),
   mutations: {
@@ -36,6 +38,8 @@ export default createStore({
     setMinimapOpen(state, v) { state.settings.minimapOpen = v },
     setMinimapAlerts(state, v) { state.settings.minimapAlerts = v },
     setMinimapSize(state, v) { state.settings.minimapSize = v },
-    setTelegraphOn(state, v) { state.settings.telegraphOn = v }
+    setTelegraphOn(state, v) { state.settings.telegraphOn = v },
+    setEffectsQuality(state, v) { state.settings.effectsQuality = v },
+    setScreenShake(state, v) { state.settings.screenShake = v }
   }
 })

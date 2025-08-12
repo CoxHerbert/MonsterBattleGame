@@ -419,8 +419,18 @@ export default {
       return true;
     },
 
+    /* ===== FX 质量与开关（带默认值） ===== */
+    fxQuality(){ return (this.$store?.state?.settings?.effectsQuality) || 'high'; },
+    fxHigh(){ return this.fxQuality() !== 'low'; },
+    fxShakeEnabled(){
+      const v = this.$store?.state?.settings?.screenShake;
+      return (v === undefined || v === null) ? true : !!v;
+    },
+
     /* ===== 屏幕震动 ===== */
     startShake(intensity = 6, durationMs = 250){
+      if (!this.fxShakeEnabled()) return;
+      if (!this.fxHigh()) intensity *= 0.6;
       this.shake.amp = intensity;
       this.shake.dur = Math.max(1, durationMs);
       this.shake.t = this.shake.dur;
@@ -1171,33 +1181,38 @@ export default {
         ctx.globalAlpha = 1;
       }
 
-      // —— 激光（带纹理滚动 + 外发光） —— //
+      // —— 激光（带纹理滚动 + 外发光，按质量调整） —— //
       for (const b of this.bullets) {
         if (b.type !== 'beam') continue;
-
         const pal = this.skinPalette ? this.skinPalette() : { beamGlow:'#d6b3ff', beamCore:'#cfa5ff' };
         const ex = b.x + Math.cos(b.dir)*b.range;
         const ey = b.y + Math.sin(b.dir)*b.range;
 
         // 外发光层
         ctx.save();
-        ctx.globalAlpha = 0.32;
+        ctx.globalAlpha = this.fxHigh()? 0.32 : 0.22;
         ctx.strokeStyle = pal.beamGlow || '#d6b3ff';
-        ctx.lineWidth = Math.max(1, (b.width||6) * 2.4);
+        ctx.lineWidth = Math.max(1, (b.width||6) * (this.fxHigh()? 2.4 : 1.6));
         ctx.beginPath();
         ctx.moveTo(b.x, b.y);
         ctx.lineTo(ex, ey);
         ctx.stroke();
         ctx.restore();
 
-        // 纹理滚动（虚线动画）
+        // 纹理滚动（低配关闭虚线，仅画实线）
         ctx.save();
         ctx.globalAlpha = 0.95;
         ctx.strokeStyle = pal.beamCore || '#cfa5ff';
         ctx.lineWidth = b.width || 6;
-        const dash = (b.width||6) * 2.0;
-        ctx.setLineDash([dash, dash]);
-        ctx.lineDashOffset = - (performance.now() * 0.25);
+
+        if (this.fxHigh()){
+          const dash = (b.width||6) * 2.0;
+          ctx.setLineDash([dash, dash]);
+          ctx.lineDashOffset = - (performance.now() * 0.25);
+        } else {
+          ctx.setLineDash([]);
+        }
+
         ctx.beginPath();
         ctx.moveTo(b.x, b.y);
         ctx.lineTo(ex, ey);
@@ -1460,9 +1475,11 @@ export default {
 
     /* 命中 FX：记录命中点，供渲染层绘制电弧/火花 */
     addBeamHit(x, y, dir){
-      if (this.beamFx.hits.length > 50) this.beamFx.hits.shift();
-      this.beamFx.hits.push({ x, y, dir: dir || 0, life: 0.12, max: 0.12 });
-      this.makeHitParticles(x, y, '#bde0ff');
+      if (!this.fxHigh() && Math.random() < 0.6) return;
+      if (this.beamFx.hits.length > (this.fxHigh()? 50 : 20)) this.beamFx.hits.shift();
+      const life = this.fxHigh()? 0.12 : 0.08;
+      this.beamFx.hits.push({ x, y, dir: dir || 0, life, max: life });
+      if (this.fxHigh()) this.makeHitParticles(x, y, (this.skinPalette?.().beamGlow || '#bde0ff'));
     },
 
     /* 命中 FX 的生命周期 */
@@ -1476,12 +1493,19 @@ export default {
 
     /* 绘制电弧簇（短小抖动的折线） */
     drawElectricBurst(ctx, x, y, { bolts=3, radius=22, jitter=10, alpha=0.9 } = {}){
+      const pal = this.skinPalette ? this.skinPalette() : {};
+      const cCore = pal.beamCore || '#cfa5ff';
+      const cAlt1 = pal.beamGlow || '#d6b3ff';
+      const cAlt2 = '#eaf7ff';
+
+      if (!this.fxHigh()){ bolts = Math.max(1, Math.floor(bolts*0.6)); radius *= 0.7; jitter *= 0.7; alpha *= 0.8; }
+
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       for (let b=0; b<bolts; b++){
-        const segs = 4 + Math.floor(Math.random()*3);
+        const segs = this.fxHigh() ? (4 + Math.floor(Math.random()*3)) : (3 + Math.floor(Math.random()*2));
         let px = x, py = y;
         ctx.beginPath();
         ctx.moveTo(px, py);
@@ -1490,8 +1514,10 @@ export default {
           const len = radius / segs + (Math.random()-0.5)*2;
           const nx = px + Math.cos(ang)*len + (Math.random()-0.5)*jitter;
           const ny = py + Math.sin(ang)*len + (Math.random()-0.5)*jitter;
+
           ctx.lineWidth = 1 + Math.max(0, (segs - s)) * 0.3;
-          ctx.strokeStyle = (s===0) ? '#eaf7ff' : (Math.random()<0.4 ? '#d0ecff' : '#98d5ff');
+          ctx.strokeStyle = (s===0) ? cAlt2 : (Math.random()<0.5 ? cAlt1 : cCore);
+
           ctx.lineTo(nx, ny);
           px = nx; py = ny;
         }

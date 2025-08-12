@@ -156,7 +156,8 @@ export default class BulletSystem {
         if (z.hp<=0) this.onKill(z, j);
       }
     }
-    S.makeDeathBurst(b.x,b.y,'#ffcf6b'); this.sfx?.hit?.();
+    const pal = this.s.skinPalette?.() || {};
+    S.makeDeathBurst(b.x,b.y, pal.explosion || '#ffcf6b'); this.sfx?.hit?.();
     this.s.startShake && this.s.startShake(6, 280);
   }
 
