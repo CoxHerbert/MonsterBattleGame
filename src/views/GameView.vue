@@ -86,6 +86,8 @@
 
 <script>
 import SettingsPanel from '../components/SettingsPanel.vue'
+import modes from '@/game/config/modes.config.js'
+import SaveSystem from '@/game/systems/SaveSystem.js'
 const LS_KEY = 'zombie-best-score-v1';
 
 /* ===== 内置SVG精灵（可替换为你的 PNG/SVG 地址） ===== */
@@ -319,8 +321,25 @@ export default {
     document.addEventListener('fullscreenchange', this.onFullscreenChange);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
 
+    const q = this.$route.query;
+    this.mode = q.mode || 'ENDLESS';
+    this.chapterId = q.chapterId;
+    this.player.weaponId = q.weapon || 'mg';
+    if (this.mode === 'PROGRESSION' && this.chapterId) {
+      const ch = modes.PROGRESSION.chapters.find(c=>c.id===this.chapterId);
+      if (ch) this.worldSeed = ch.seed;
+    }
     this.reset();
-    const saveId = this.$route.query.save;
+    const meta = new SaveSystem().loadMeta();
+    if (meta.trees) {
+      for (const tree of Object.values(meta.trees)) {
+        for (const [nodeId, lv] of Object.entries(tree)) {
+          if (nodeId==='atk_1') this.player.damage += 2*lv;
+          if (nodeId==='hp_1') { this.player.maxHp += 12*lv; this.player.hp = this.player.maxHp; }
+        }
+      }
+    }
+    const saveId = q.save;
     if (saveId) this.loadSave(saveId);
 
     // load sprites & run
