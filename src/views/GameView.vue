@@ -89,7 +89,7 @@ import SettingsPanel from '../components/SettingsPanel.vue'
 import modes from '@/game/config/modes.config.js'
 import SaveSystem from '@/game/systems/SaveSystem.js'
 import WeaponSystem from '@/game/weapons/WeaponSystem.js'
-import { ENEMY_ALERTS, ENEMY_ALERTS_OVERRIDE, ENEMY_TELEGRAPH_WORLD } from '@/game/config/enemies.config.js'
+import { ENEMY_VFX } from '@/game/config/enemies.visuals.js'
 const LS_KEY = 'zombie-best-score-v1';
 
 /* ===== 内置SVG精灵（可替换为你的 PNG/SVG 地址） ===== */
@@ -1381,16 +1381,19 @@ export default {
       return { fill, stroke, strokeWidth, r, alpha };
     },
 
-    /* ===== Telegraph: 工具 ===== */
-    teleCfg(type){
-      const d = ENEMY_TELEGRAPH_WORLD?.defaults || {};
-      const o = ENEMY_TELEGRAPH_WORLD?.[type] || {};
-      return { ...d, ...o };
+    /* ===== VFX 统一读表工具 ===== */
+    vfxTypeOf(z){
+      return z.type || (z.boss ? (z.bossId || 'boss') : 'zombie');
     },
-    alertCfg(key, type){
-      const base = ENEMY_ALERTS?.[key];
-      const ov   = ENEMY_ALERTS_OVERRIDE?.[type]?.[key] || {};
-      return base ? { ...base, ...ov } : null;
+    vfxAlertCfg(key, type){
+      const base = ENEMY_VFX?.alerts?.[key];
+      const ov   = ENEMY_VFX?.types?.[type]?.alerts?.[key];
+      return base ? { ...base, ...(ov||{}) } : null;
+    },
+    vfxWorldCfg(type){
+      const d = ENEMY_VFX?.world?.defaults || {};
+      const o = ENEMY_VFX?.types?.[type]?.world || {};
+      return { ...d, ...o };
     },
     pulse01(speed){ return 0.5 + 0.5 * Math.sin((performance.now()/1000) * (speed || 8)); },
     /* 画扇形（世界坐标） */
@@ -1418,165 +1421,140 @@ export default {
     },
     /* ===== Telegraph 主函数（为每只敌人绘制） ===== */
     drawGroundTelegraphFor(z, ctx, camX, camY){
-      // 性能/总开关
       if (this.$store && this.$store.state?.settings?.telegraphOn === false) return;
 
-      // 基础坐标
+      const type = this.vfxTypeOf(z);
+      const C = this.vfxWorldCfg(type);
+
       const x = z.x - camX, y = z.y - camY;
-      const type = z.type || (z.boss ? (z.bossId || 'boss') : 'zombie');
-      const C = this.teleCfg(type);
 
-      // 1) 脚下基础圈：区分精英/普通（弱提示）
+      const pulse = (cfg)=> {
+        const p = this.pulse01(cfg.speed);
+        const [a0,a1] = cfg.alpha || [0.5, 1.0];
+        return { p, alpha: a0 + (a1-a0)*p };
+      };
+      const drawRing = (r, color, w=2, a=0.8)=>{ this.drawRing(ctx, x, y, r, color, w, a); };
+
+      // 1) 脚下基础圈
       const baseRadius = (z.r || 12) * (C.ringRadiusScale || 1.4);
-      const baseAlpha  = z.elite ? 0.22 : 0.12;
-      const baseColor  = z.elite ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.7)';
-      this.drawRing(ctx, x, y, baseRadius, baseColor, 1, baseAlpha);
+      drawRing(baseRadius, z.elite ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.7)', 1, z.elite ? 0.22 : 0.12);
 
-      // 2) 冲锋（dash 激活时）：橙色脉冲圈
+      // 2) 冲锋
       if (z.dashing){
-        const cfg = this.alertCfg('charge', type);
+        const cfg = this.vfxAlertCfg('charge', type);
         if (cfg){
-          const p = this.pulse01(cfg.speed);
-          const r = (z.r||12) * (C.chargeRadiusScale || 1.8) * (1 + cfg.scale * p);
-          this.drawRing(ctx, x, y, r, cfg.color, cfg.line, (cfg.alpha?.[0]||0.6) + ((cfg.alpha?.[1]||1.0)-(cfg.alpha?.[0]||0.6))*p);
+          const t = pulse(cfg);
+          const rr = (z.r||12) * (C.chargeRadiusScale || 1.8) * (1 + (cfg.scale||0) * t.p);
+          drawRing(rr, cfg.color, cfg.line, t.alpha);
         }
       }
 
-      // 3) 远程射击/喷吐前摇：shotCd < pre
+      // 3) 远程/喷吐前摇
       if (z.shotCd !== undefined){
-        const isSpit = (z.ai === 'spit');
-        const key = isSpit ? 'spit' : 'shoot';
-        const cfg = this.alertCfg(key, type);
-        if (cfg && z.shotCd < cfg.pre){
-          const p = this.pulse01(cfg.speed);
-          const R = (isSpit ? (C.spitRadius||90) : (C.shootRadius||70)) * (1 + cfg.scale * p);
-          this.drawRing(ctx, x, y, R, cfg.color, cfg.line, (cfg.alpha?.[0]||0.45) + ((cfg.alpha?.[1]||0.85)-(cfg.alpha?.[0]||0.45))*p);
+        const key = (z.ai === 'spit') ? 'spit' : 'shoot';
+        const cfg = this.vfxAlertCfg(key, type);
+        if (cfg && z.shotCd < (cfg.pre||0)){
+          const t = pulse(cfg);
+          const baseR = (key==='spit') ? (C.spitRadius||90) : (C.shootRadius||70);
+          drawRing(baseR * (1 + (cfg.scale||0) * t.p), cfg.color, cfg.line, t.alpha);
         }
       }
 
-      // 4) 召唤前摇：summonCd < pre
+      // 4) 召唤前摇
       if (z.summonCd !== undefined){
-        const cfg = this.alertCfg('summon', type);
-        if (cfg && z.summonCd < cfg.pre){
-          const p = this.pulse01(cfg.speed);
-          const R = (C.summonRadius||110) * (1 + cfg.scale * p);
-          this.drawRing(ctx, x, y, R, cfg.color, cfg.line, (cfg.alpha?.[0]||0.5) + ((cfg.alpha?.[1]||0.95)-(cfg.alpha?.[0]||0.5))*p);
+        const cfg = this.vfxAlertCfg('summon', type);
+        if (cfg && z.summonCd < (cfg.pre||0)){
+          const t = pulse(cfg);
+          drawRing((C.summonRadius||110) * (1 + (cfg.scale||0) * t.p), cfg.color, cfg.line, t.alpha);
         }
       }
 
-      // 5) 自爆警戒：玩家进入爆炸半径 * factor 时常亮脉冲
+      // 5) 自爆
       if (z.cfg && z.cfg.boom){
-        const cfg = this.alertCfg('suicide', type);
+        const cfg = this.vfxAlertCfg('suicide', type);
         if (cfg){
           const R0 = (z.cfg.boom.radius || 96) + (C.suicideRadiusExtra||0);
-          const factor = cfg.radiusFactor || 1.0;
           const d = Math.hypot(this.player.x - z.x, this.player.y - z.y);
-          if (d <= R0 * factor){
-            const p = this.pulse01(cfg.speed);
-            const R = R0 * (1 + cfg.scale * p);
-            this.drawRing(ctx, x, y, R, cfg.color, cfg.line, (cfg.alpha?.[0]||0.55) + ((cfg.alpha?.[1]||0.95)-(cfg.alpha?.[0]||0.55))*p);
+          if (d <= R0 * (cfg.radiusFactor || 1.0)){
+            const t = pulse(cfg);
+            drawRing(R0 * (1 + (cfg.scale||0) * t.p), cfg.color, cfg.line, t.alpha);
           } else {
-            // 离得远：画细红圈（不脉冲）
-            this.drawRing(ctx, x, y, R0, cfg.color, 1.5, 0.25);
+            drawRing(R0, cfg.color, 1.5, 0.25);
           }
         }
       }
 
-      // 6) Boss：锥形前摇（_coneCd < pre）& 环形爆发（_novaCd < pre）
+      // 6) Boss
       if (z.boss){
-        // 锥形（朝向玩家的方向）
-        const coneCfg = this.alertCfg('boss_cone', type);
-        if (coneCfg && z._coneCd !== undefined && z._coneCd < coneCfg.pre){
-          const p = this.pulse01(coneCfg.speed);
+        const cone = this.vfxAlertCfg('boss_cone', type);
+        if (cone && z._coneCd !== undefined && z._coneCd < (cone.pre||0)){
+          const t = pulse(cone);
           const ang = Math.atan2(this.player.y - z.y, this.player.x - z.x);
           const half = ((C.coneAngleDeg || 70) * Math.PI / 180) / 2;
-          const R = (C.coneRange || 420) * (1 + coneCfg.scale * p);
-          this.drawSector(ctx, x, y, R, ang, half, coneCfg.color, (coneCfg.alpha?.[0]||0.35) + ((coneCfg.alpha?.[1]||0.95)-(coneCfg.alpha?.[0]||0.35))*p);
-          this.drawRing(ctx, x, y, R, coneCfg.color, 2, 0.5); // 外缘细描边
+          const R = (C.coneRange || 420) * (1 + (cone.scale||0) * t.p);
+          this.drawSector(ctx, x, y, R, ang, half, cone.color, t.alpha);
+          this.drawRing(ctx, x, y, R, cone.color, 2, 0.5);
         }
-
-        // 环形爆发
-        const novaCfg = this.alertCfg('boss_nova', type);
-        if (novaCfg && z._novaCd !== undefined && z._novaCd < novaCfg.pre){
-          const p = this.pulse01(novaCfg.speed);
-          const R = (C.novaRadius || 220) * (1 + novaCfg.scale * p);
-          this.drawRing(ctx, x, y, R, novaCfg.color, novaCfg.line, (novaCfg.alpha?.[0]||0.6) + ((novaCfg.alpha?.[1]||0.95)-(novaCfg.alpha?.[0]||0.6))*p);
+        const nova = this.vfxAlertCfg('boss_nova', type);
+        if (nova && z._novaCd !== undefined && z._novaCd < (nova.pre||0)){
+          const t = pulse(nova);
+          const R = (C.novaRadius || 220) * (1 + (nova.scale||0) * t.p);
+          drawRing(R, nova.color, nova.line, t.alpha);
         }
       }
     },
 
-    /* =====(CFG) Minimap：基于配置表的敌人前摇/警戒可视化 ===== */
+    /* ===== Minimap Alert（读取 ENEMY_VFX） ===== */
     enemyMinimapAlert(z){
-      // 全局开关（可改成 this.$store.state.settings.minimapAlerts）
       if (this.miniFxEnabled === false) return null;
-
-      const getCfg = (key) => {
-        // 基础模板
-        const base = ENEMY_ALERTS[key];
-        if (!base) return null;
-        // 类型覆盖
-        const ovType = ENEMY_ALERTS_OVERRIDE?.[z.type]?.[key] || {};
-        return { ...base, ...ovType };
+      const type = this.vfxTypeOf(z);
+      const pulse = (cfg)=> {
+        const p = this.pulse01(cfg.speed);
+        const [a0,a1] = cfg.alpha || [0.5, 1.0];
+        return { scale:1 + (cfg.scale||0)*p, alpha: a0 + (a1-a0)*p };
       };
 
-      const pulse = (speed)=> (0.5 + 0.5 * Math.sin((performance.now()/1000) * speed));
-
-      // 1) 冲锋（dash 活动时高亮；或需要也可根据 dashCd < pre）
+      // 1) 冲锋中
       if (z.dashing){
-        const cfg = getCfg('charge'); if (cfg){
-          const p = pulse(cfg.speed);
-          const [a0,a1] = cfg.alpha;
-          return { color:cfg.color, width:cfg.line, scale:1 + cfg.scale*p, alpha:a0 + (a1-a0)*p };
-        }
+        const cfg = this.vfxAlertCfg('charge', type);
+        if (cfg){ const t = pulse(cfg); return { color:cfg.color, width:cfg.line, scale:t.scale, alpha:t.alpha }; }
       }
-
-      // 2) 远程射击/喷吐：shotCd < pre
+      // 2) 远程/喷吐前摇
       if (z.shotCd !== undefined){
-        // 按 AI 类型区分样式
         const key = (z.ai === 'spit') ? 'spit' : 'shoot';
-        const cfg = getCfg(key);
-        if (cfg && z.shotCd < cfg.pre){
-          const p = pulse(cfg.speed); const [a0,a1] = cfg.alpha;
-          return { color:cfg.color, width:cfg.line, scale:1 + cfg.scale*p, alpha:a0 + (a1-a0)*p };
+        const cfg = this.vfxAlertCfg(key, type);
+        if (cfg && z.shotCd < (cfg.pre||0)){
+          const t = pulse(cfg); return { color:cfg.color, width:cfg.line, scale:t.scale, alpha:t.alpha };
         }
       }
-
-      // 3) 召唤：summonCd < pre
+      // 3) 召唤前摇
       if (z.summonCd !== undefined){
-        const cfg = getCfg('summon');
-        if (cfg && z.summonCd < cfg.pre){
-          const p = pulse(cfg.speed); const [a0,a1] = cfg.alpha;
-          return { color:cfg.color, width:cfg.line, scale:1 + cfg.scale*p, alpha:a0 + (a1-a0)*p };
+        const cfg = this.vfxAlertCfg('summon', type);
+        if (cfg && z.summonCd < (cfg.pre||0)){
+          const t = pulse(cfg); return { color:cfg.color, width:cfg.line, scale:t.scale, alpha:t.alpha };
         }
       }
-
-      // 4) 自爆体：玩家进入爆炸半径 * radiusFactor
+      // 4) 自爆警戒
       if (z.cfg && z.cfg.boom){
-        const cfg = getCfg('suicide');
+        const cfg = this.vfxAlertCfg('suicide', type);
         if (cfg){
-          const R = (z.cfg.boom.radius || 96) * (cfg.radiusFactor || 1);
+          const factor = cfg.radiusFactor || 1.0;
           const d = Math.hypot(this.player.x - z.x, this.player.y - z.y);
-          if (d <= R){
-            const p = pulse(cfg.speed); const [a0,a1] = cfg.alpha;
-            return { color:cfg.color, width:cfg.line, scale:1 + cfg.scale*p, alpha:a0 + (a1-a0)*p };
-          }
+          const R = (z.cfg.boom.radius || 96) * factor;
+          if (d <= R){ const t = pulse(cfg); return { color:cfg.color, width:cfg.line, scale:t.scale, alpha:t.alpha }; }
         }
       }
-
-      // 5) Boss 技能前摇：_coneCd / _novaCd
+      // 5) Boss
       if (z.boss){
-        const coneCfg = getCfg('boss_cone');
-        if (coneCfg && z._coneCd !== undefined && z._coneCd < coneCfg.pre){
-          const p = pulse(coneCfg.speed); const [a0,a1] = coneCfg.alpha;
-          return { color:coneCfg.color, width:coneCfg.line, scale:1 + coneCfg.scale*p, alpha:a0 + (a1-a0)*p };
+        const cone = this.vfxAlertCfg('boss_cone', type);
+        if (cone && z._coneCd !== undefined && z._coneCd < (cone.pre||0)){
+          const t = pulse(cone); return { color:cone.color, width:cone.line, scale:t.scale, alpha:t.alpha };
         }
-        const novaCfg = getCfg('boss_nova');
-        if (novaCfg && z._novaCd !== undefined && z._novaCd < novaCfg.pre){
-          const p = pulse(novaCfg.speed); const [a0,a1] = novaCfg.alpha;
-          return { color:novaCfg.color, width:novaCfg.line, scale:1 + novaCfg.scale*p, alpha:a0 + (a1-a0)*p };
+        const nova = this.vfxAlertCfg('boss_nova', type);
+        if (nova && z._novaCd !== undefined && z._novaCd < (nova.pre||0)){
+          const t = pulse(nova); return { color:nova.color, width:nova.line, scale:t.scale, alpha:t.alpha };
         }
       }
-
       return null;
     },
 
