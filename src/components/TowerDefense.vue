@@ -16,27 +16,18 @@
 import { defineComponent, onMounted, ref } from 'vue'
 import type { LevelConfig } from '../game/level'
 import { level1 } from '../game/level'
-
-interface Enemy {
-  x: number
-  y: number
-  speed: number
-  seg: number
-  hp: number
-}
-
-interface Tower {
-  x: number
-  y: number
-  cooldown: number
-}
+import { Enemy } from '../game/enemy'
+import { Tower, type TowerStats } from '../game/tower'
+import { applyDamage } from '../game/damage'
 
 export default defineComponent({
   name: 'TowerDefense',
   setup() {
     const canvas = ref<HTMLCanvasElement | null>(null)
-    const gold = ref(20)
-    const lives = ref(20)
+    const cfg: LevelConfig = level1
+
+    const gold = ref(cfg.startGold)
+    const lives = ref(cfg.startLives)
     const wave = ref(0)
     const phase = ref<'build' | 'wave'>('build')
     const speed = ref(1)
@@ -45,8 +36,16 @@ export default defineComponent({
     const towers: Tower[] = []
     const enemies: Enemy[] = []
 
-    const cfg: LevelConfig = level1
     const pathSet = new Set(cfg.path.map(p => `${p.x},${p.y}`))
+    const basicTower: TowerStats = {
+      range: cfg.tileSize * 2,
+      fireRate: 1,
+      damage: 1,
+      damageType: 'physical',
+      cost: 5
+    }
+
+    let eventIndex = 0
     let spawnCount = 0
     let spawnTimer = 0
     let last = performance.now()
@@ -64,63 +63,57 @@ export default defineComponent({
       const rect = canvas.value.getBoundingClientRect()
       const x = Math.floor((e.clientX - rect.left) / cfg.tileSize)
       const y = Math.floor((e.clientY - rect.top) / cfg.tileSize)
-      if (gold.value < 5) return
+      if (gold.value < basicTower.cost) return
       const key = `${x},${y}`
       if (pathSet.has(key) || towers.find(t => t.x === x && t.y === y)) return
-      towers.push({ x, y, cooldown: 0 })
-      gold.value -= 5
+      towers.push(new Tower(x, y, { ...basicTower }))
+      gold.value -= basicTower.cost
     }
 
     function startWave() {
       if (phase.value !== 'build') return
       phase.value = 'wave'
+      eventIndex = 0
       spawnCount = 0
       spawnTimer = 0
     }
 
-    function spawnEnemy() {
-      const start = cfg.path[0]
-      enemies.push({
-        x: start.x * cfg.tileSize + cfg.tileSize / 2,
-        y: start.y * cfg.tileSize + cfg.tileSize / 2,
-        speed: 60,
-        seg: 0,
-        hp: 3
-      })
+    const enemyTypes: Record<string, { hp: number; armor: number; moveSpeed: number; bounty: number }> = {
+      basic: { hp: 3, armor: 0, moveSpeed: 60, bounty: 1 },
+      elite: { hp: 10, armor: 1, moveSpeed: 50, bounty: 5 }
+    }
+
+    function spawnEnemy(type: string) {
+      const cfgE = enemyTypes[type] || enemyTypes.basic
+      enemies.push(new Enemy(cfg.path, cfg.tileSize, cfgE))
     }
 
     function update(dt: number) {
       if (phase.value === 'wave') {
         const waveCfg = cfg.waves[wave.value]
-        if (waveCfg) {
+        const ev = waveCfg?.events[eventIndex]
+        if (ev) {
           spawnTimer += dt
-          if (spawnCount < waveCfg.count && spawnTimer >= waveCfg.interval) {
-            spawnEnemy()
+          if (spawnCount < ev.count && spawnTimer >= ev.interval) {
+            spawnEnemy(ev.type)
             spawnCount++
             spawnTimer = 0
           }
+          if (spawnCount >= ev.count && enemies.length === 0) {
+            eventIndex++
+            spawnCount = 0
+            spawnTimer = 0
+          }
+        } else if (waveCfg && enemies.length === 0) {
+          wave.value++
+          phase.value = 'build'
         }
       }
 
       for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i]
-        const next = cfg.path[enemy.seg + 1]
-        if (next) {
-          const tx = next.x * cfg.tileSize + cfg.tileSize / 2
-          const ty = next.y * cfg.tileSize + cfg.tileSize / 2
-          const dx = tx - enemy.x
-          const dy = ty - enemy.y
-          const dist = Math.hypot(dx, dy)
-          const step = enemy.speed * dt
-          if (dist <= step) {
-            enemy.x = tx
-            enemy.y = ty
-            enemy.seg++
-          } else {
-            enemy.x += (dx / dist) * step
-            enemy.y += (dy / dist) * step
-          }
-        } else {
+        enemy.update(dt)
+        if (enemy.seg >= cfg.path.length - 1) {
           enemies.splice(i, 1)
           lives.value--
         }
@@ -131,24 +124,16 @@ export default defineComponent({
         if (t.cooldown <= 0) {
           const tx = t.x * cfg.tileSize + cfg.tileSize / 2
           const ty = t.y * cfg.tileSize + cfg.tileSize / 2
-          const target = enemies.find(e => Math.hypot(e.x - tx, e.y - ty) <= cfg.tileSize * 2)
+          const target = enemies.find(e => Math.hypot(e.x - tx, e.y - ty) <= t.stats.range)
           if (target) {
-            target.hp--
-            t.cooldown = 1
+            applyDamage(target, { amount: t.stats.damage, type: t.stats.damageType })
+            t.cooldown = 1 / t.stats.fireRate
             if (target.hp <= 0) {
               const idx = enemies.indexOf(target)
               enemies.splice(idx, 1)
-              gold.value += 1
+              gold.value += target.bounty
             }
           }
-        }
-      }
-
-      if (phase.value === 'wave') {
-        const waveCfg = cfg.waves[wave.value]
-        if (waveCfg && spawnCount >= waveCfg.count && enemies.length === 0) {
-          wave.value++
-          phase.value = 'build'
         }
       }
     }
