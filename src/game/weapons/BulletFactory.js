@@ -8,7 +8,7 @@ export default class BulletFactory {
     const p = this.s.player;
     const muzzleX = p.x + Math.cos(dir) * (p.r + 12);
     const muzzleY = p.y + Math.sin(dir) * (p.r + 12);
-    this.s.bullets.push({
+    const proto = {
       x: muzzleX,
       y: muzzleY,
       dir,
@@ -16,19 +16,16 @@ export default class BulletFactory {
       dmg: this._calcDamage(this.s.weapon.stats.dmg),
       life: this.s.weapon.stats.life,
       from: 'player',
-      pierce: this.s.buff?.pierce > 0 ? 2 : (this.s.weapon.stats.pierce || 0),
-      bounce: this.s.buff?.bounce > 0 ? 2 : 0,
-      burn: this.s.buff?.burn > 0,
-      split: this.s.buff?.split > 0
-    });
-    this.sfx?.shot?.();
+      spread: this.s.weapon.stats.spread || 0
+    };
+    this.s.bulletSys.shoot(proto);
   }
 
   fireRocket({ dir }) {
     const p = this.s.player;
     const muzzleX = p.x + Math.cos(dir) * (p.r + 14);
     const muzzleY = p.y + Math.sin(dir) * (p.r + 14);
-    this.s.bullets.push({
+    const proto = {
       x: muzzleX,
       y: muzzleY,
       dir,
@@ -38,12 +35,12 @@ export default class BulletFactory {
       from: 'player',
       color: '#ffb347',
       explodeOnExpire: true,
-      explosion: {
+      splash: {
         radius: this.s.weapon.stats.splash.radius,
         falloff: this.s.weapon.stats.splash.falloff
       }
-    });
-    this.sfx?.shot?.();
+    };
+    this.s.bulletSys.shoot(proto);
   }
 
   fireLaser({ dir }) {
@@ -52,7 +49,7 @@ export default class BulletFactory {
     const range = this.s.weapon.stats.range;
     const width = this.s.weapon.stats.width;
     const tick = this.s.weapon.stats.tick;
-    const dmg = this._calcDamage(this.s.weapon.stats.tickDmg);
+    const dmg = this.s.buffSys.applyToBullet({ dmg: this._calcDamage(this.s.weapon.stats.tickDmg) }).dmg;
     if (!existing) {
       this.s.bullets.push({
         type: 'beam',

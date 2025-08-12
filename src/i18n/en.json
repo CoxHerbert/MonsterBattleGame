@@ -93,5 +93,21 @@
     "burn": "Burn",
     "slow": "Slow",
     "shock": "Shock"
+  },
+  "game": {
+    "buff": {
+      "speed": "Speed",
+      "spread": "Spread",
+      "burn": "Burn",
+      "pierce": "Pierce",
+      "bounce": "Bounce",
+      "split": "Split"
+    },
+    "augment": {
+      "atk": "Attack Up",
+      "aspd": "Attack Speed",
+      "speed": "Move Speed",
+      "hp": "Max HP"
+    }
   }
 }

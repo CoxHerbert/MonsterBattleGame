@@ -90,6 +90,8 @@ import modes from '@/game/config/modes.config.js'
 import SaveSystem from '@/game/systems/SaveSystem.js'
 import WeaponSystem from '@/game/weapons/WeaponSystem.js'
 import { ENEMY_VFX } from '@/game/config/enemies.visuals.js'
+import BuffSystem from '@/game/systems/BuffSystem.js'
+import BulletSystem from '@/game/systems/BulletSystem.js'
 const LS_KEY = 'zombie-best-score-v1';
 
 /* ===== 内置SVG精灵（可替换为你的 PNG/SVG 地址） ===== */
@@ -132,10 +134,10 @@ function seedFrom(cx, cy, worldSeed){const s=((cx*73856093)^(cy*19349663)^worldS
 
 // 永久增益（Augments）定义
 const AUGMENTS = [
-  { id: 'atk',  name: '攻击强化',  apply(g) { g.player.damage += g.weapon.stats.dmg * 0.2; } },
-  { id: 'aspd', name: '攻速提升', apply(g) { g.weapon.stats.fireInterval *= 0.9; g.weaponSys.cooldown *= 0.9; } },
-  { id: 'speed', name: '移速提升', apply(g) { g.player.baseSpeed *= 1.1; g.player.speed = g.player.baseSpeed; } },
-  { id: 'hp',   name: '生命提升', apply(g) { g.player.maxHp += 20; g.player.hp += 20; } }
+  { id: 'atk',  name: '攻击强化' },
+  { id: 'aspd', name: '攻速提升' },
+  { id: 'speed', name: '移速提升' },
+  { id: 'hp',   name: '生命提升' }
 ];
 
 export default {
@@ -197,6 +199,8 @@ export default {
       // entities
       bullets: [], zombies: [], particles: [], drops: [],
       weaponSys: null,
+      buffSys: null,
+      bulletSys: null,
 
       // spawn
       spawnTimer: 0, spawnInterval: 1.0, wave: 1,
@@ -209,9 +213,6 @@ export default {
 
       // score
       score: 0, bestScore: 0, combo: 1, comboTimer: 0,
-
-      // buffs
-      buff: { speed: 0, spread: 0, burn: 0, pierce: 0, bounce: 0, split: 0 },
 
       // device
       isTouchDevice: false,
@@ -251,24 +252,21 @@ export default {
   },
   computed: {
     settings() { return this.$store.state.settings; },
-    activeBuffs() {
-      const list = [];
-      if (this.buff.speed > 0)  list.push({ kind: '加速', left: this.buff.speed });
-      if (this.buff.spread > 0) list.push({ kind: '散射', left: this.buff.spread });
-      if (this.buff.burn > 0)   list.push({ kind: '燃烧', left: this.buff.burn });
-      if (this.buff.pierce > 0) list.push({ kind: '穿透', left: this.buff.pierce });
-      if (this.buff.bounce > 0) list.push({ kind: '弹跳', left: this.buff.bounce });
-      if (this.buff.split > 0)  list.push({ kind: '分裂', left: this.buff.split });
-      return list;
+    activeBuffs(){
+      const t=this.$t;
+      const mapKey={
+        speed:t('game.buff.speed'),
+        spread:t('game.buff.spread'),
+        burn:t('game.buff.burn'),
+        pierce:t('game.buff.pierce'),
+        bounce:t('game.buff.bounce'),
+        split:t('game.buff.split')
+      };
+      return (this.buffSys?.getActiveTemps()||[]).map(b=>({ kind: mapKey[b.kind]||b.kind, left:b.left }));
     },
-    permanentBuffs() {
-      const nameMap = { atk: '攻击强化', aspd: '攻速提升', speed: '移速提升', hp: '生命提升' };
-      const list = [];
-      for (const k in this.permaBuffs) {
-        const lv = this.permaBuffs[k];
-        if (lv > 0) list.push({ id: k, name: nameMap[k] || k, level: lv });
-      }
-      return list;
+    permanentBuffs(){
+      const t=this.$t;
+      return (this.buffSys?.getPermanentList()||[]).map(b=>({ id:b.id, name:t(`game.augment.${b.id.replace('speedP','speed')}`), level:b.level }));
     },
     isAnyFullscreen() { return this.isNativeFullscreen || this.isPseudoFullscreen; }
   },
@@ -338,6 +336,19 @@ export default {
       if (ch) this.worldSeed = ch.seed;
     }
     this.reset();
+    this.buffSys = new BuffSystem();
+    this.buffSys.setPermanent({
+      atk: this.permaBuffs.atk || 0,
+      aspd: this.permaBuffs.aspd || 0,
+      speedP: this.permaBuffs.speed || 0,
+      hp: this.permaBuffs.hp || 0
+    });
+    this.bulletSys = new BulletSystem({
+      state: this,
+      buffSys: this.buffSys,
+      sfx: { hit: this.sfxHit?.bind(this), shot: this.sfxShot?.bind(this) }
+    });
+    this.bullets = this.bulletSys.bullets;
     const meta = new SaveSystem().loadMeta();
     const inv = meta?.inventory?.weapons?.[this.player.weaponId];
     const wlv = inv?.level || 0;
@@ -681,7 +692,8 @@ export default {
       this.score = 0; this.combo = 1; this.comboTimer = 0;
       this.wave = 1; this.spawnInterval = 1.0; this.spawnTimer = 0;
       this.bullets = []; this.zombies = []; this.particles = []; this.drops = [];
-      this.buff.speed = 0; this.buff.spread = 0; this.buff.burn = 0; this.buff.pierce = 0; this.buff.bounce = 0; this.buff.split = 0;
+      if (this.buffSys) this.buffSys.clearTemps();
+      if (this.bulletSys) this.bulletSys.bullets.length = 0;
       this.bossTimer = this.bossInterval; this.bossStage = 1;
       this.augmentChoices = [];
       this.permaBuffs = { atk: 0, aspd: 0, speed: 0, hp: 0 };
@@ -913,14 +925,13 @@ export default {
       // 可见障碍
       this.refreshVisibleObstacles(camX, camY, w, h);
 
-      // buffs
-      if (this.buff.speed  > 0) this.buff.speed  = Math.max(0, this.buff.speed  - dt);
-      if (this.buff.spread > 0) this.buff.spread = Math.max(0, this.buff.spread - dt);
-      if (this.buff.burn   > 0) this.buff.burn   = Math.max(0, this.buff.burn   - dt);
-      if (this.buff.pierce > 0) this.buff.pierce = Math.max(0, this.buff.pierce - dt);
-      if (this.buff.bounce > 0) this.buff.bounce = Math.max(0, this.buff.bounce - dt);
-      if (this.buff.split  > 0) this.buff.split  = Math.max(0, this.buff.split  - dt);
-      this.player.speed = this.player.baseSpeed * (this.buff.speed > 0 ? 1.5 : 1.0);
+      this.buffSys.tick(dt);
+      const snap = this.buffSys.getSnapshot();
+      this.player.speed = this.player.baseSpeed * (snap.moveMul || 1);
+      this.player.fireInterval = Math.max(0.03, this.weapon.stats.fireInterval * (snap.fireIntervalMul || 1));
+      this.player.maxHp = 100 + (snap.maxHpAdd || 0);
+      this.player.hp = Math.min(this.player.hp, this.player.maxHp);
+      this.bulletSys.update(dt);
 
       // 移动
       let mx = 0, my = 0;
@@ -954,79 +965,6 @@ export default {
       const touchFire = (this.isTouchDevice && this.touch.right.active && (this.touch.right.mag > 0.25 || (this.autoAim.highlight && this.touch.right.mag > this.autoAim.minStickToFire)));
       const shouldFire = this.autoFire || this.mouse.down || this.gp.fire || touchFire;
       this.weaponSys.update(dt, this.player.dir, shouldFire);
-
-      // 子弹
-      for (let i = this.bullets.length - 1; i >= 0; i--) {
-        const b = this.bullets[i];
-
-        if (b.type === 'beam' && b.from === 'player') {
-          b.life -= dt;
-          if (b.life <= 0) { this.bullets.splice(i,1); continue; }
-          b._tick = (b._tick || 0) - dt;
-          if (b._tick <= 0) {
-            b._tick = b.tick;
-            const cos = Math.cos(b.dir), sin = Math.sin(b.dir);
-            for (const z of this.zombies) {
-              const dx = z.x - b.x, dy = z.y - b.y;
-              const proj = dx*cos + dy*sin;
-              if (proj < -z.r || proj > b.range + z.r) continue;
-              const px = b.x + cos * Math.max(0, Math.min(b.range, proj));
-              const py = b.y + sin * Math.max(0, Math.min(b.range, proj));
-              const dist = Math.hypot(z.x - px, z.y - py);
-              if (dist <= z.r + b.width) {
-                z.hp -= b.tickDmg;
-              }
-            }
-          }
-          continue;
-        }
-
-        b.x += Math.cos(b.dir || 0) * (b.speed || 0) * dt;
-        b.y += Math.sin(b.dir || 0) * (b.speed || 0) * dt;
-        b.life -= dt;
-
-        if (this.pointHitObstacle(b.x, b.y)) {
-          b.life = 0;
-        }
-
-        if (b.from === 'player') {
-          for (const z of this.zombies) {
-            if (this.circleHit(b.x, b.y, 3, z.x, z.y, z.r)) {
-              if (b.explodeOnExpire) {
-                b.life = 0;
-              } else {
-                z.hp -= b.dmg || 1;
-                b.life = 0;
-              }
-              break;
-            }
-          }
-        } else if (b.from === 'enemy' && this.circleHit(b.x, b.y, 3, this.player.x, this.player.y, this.player.r)) {
-          this.player.hp -= b.dmg;
-          b.life = 0;
-        }
-
-        if (b.explodeOnExpire && b.life <= 0) {
-          const radius = b.explosion?.radius || 96;
-          const falloff = b.explosion?.falloff ?? 0.5;
-          for (const z of this.zombies) {
-            const dx = z.x - b.x, dy = z.y - b.y;
-            const dist = Math.hypot(dx, dy);
-            if (dist <= radius) {
-              const ratio = 1 - dist / radius;
-              const dealt = (b.dmg || 0) * (falloff + (1 - falloff) * ratio);
-              z.hp -= dealt;
-            }
-          }
-          const pal = this.skinPalette();
-          this.makeDeathBurst?.(b.x, b.y, pal.explosion || '#ffcf6b');
-          this.sfxHit();
-          this.bullets.splice(i,1);
-          continue;
-        }
-
-        if (b.life <= 0) { this.bullets.splice(i,1); }
-      }
 
       // Boss刷新
       this.bossTimer -= dt;
@@ -1089,25 +1027,6 @@ export default {
           }
         }
 
-        // 子弹命中
-        for (let j = this.bullets.length - 1; j >= 0; j--) {
-          const b = this.bullets[j];
-          if (b.from !== 'player') continue;
-          if (this.circleHit(b.x, b.y, 3, z.x, z.y, z.r)) {
-            if (z.invuln > 0) continue;
-            z.hp -= b.dmg;
-            if (b.burn) { z.burnTime = 3; z.burnDps = 6; }
-            if (b.split && !b.fromSplit) {
-              for (const s of [-0.4, 0.4]) {
-                this.bullets.push({ x: z.x, y: z.y, dir: b.dir + s, speed: 560, dmg: b.dmg * 0.5, life: 0.6, from: 'player', pierce: 0, bounce: 0, burn: b.burn, split: false, fromSplit: true });
-              }
-            }
-            this.makeHitParticles(z.x, z.y, '#6cf'); this.sfxHit();
-            if (z.hp <= 0) { this.zombies.splice(i, 1); this.onKill(z); }
-            if (b.pierce && b.pierce > 0) { b.pierce--; } else { this.bullets.splice(j, 1); }
-            break;
-          }
-        }
         // 咬玩家
         if (this.circleHit(this.player.x, this.player.y, this.player.r, z.x, z.y, z.r)) {
           this.player.hp -= z.dmg * dt; const push = 50 * dt; z.x -= Math.cos(dir) * push; z.y -= Math.sin(dir) * push;
@@ -1758,8 +1677,13 @@ export default {
       return opts;
     },
     pickAugment(a) {
-      a.apply(this);
       this.permaBuffs[a.id]++;
+      this.buffSys.setPermanent({
+        atk: this.permaBuffs.atk,
+        aspd: this.permaBuffs.aspd,
+        speedP: this.permaBuffs.speed,
+        hp: this.permaBuffs.hp
+      });
       this.augmentChoices = [];
       this.paused = false;
       this.enrageEnemies();
@@ -1785,13 +1709,11 @@ export default {
       const cfg = map[type]; this.drops.push({ type, x, y, drawY:y, r:13, life:10, bob:0, icon:cfg.icon, color:cfg.color });
     },
     applyDrop(type) {
-      if (type==='heal') this.player.hp = Math.min(this.player.maxHp, this.player.hp + 35);
-      if (type==='speed') this.buff.speed = Math.max(this.buff.speed, 8);
-      if (type==='spread') this.buff.spread = Math.max(this.buff.spread, 10);
-      if (type==='burn') this.buff.burn = Math.max(this.buff.burn, 10);
-      if (type==='pierce') this.buff.pierce = Math.max(this.buff.pierce, 10);
-      if (type==='bounce') this.buff.bounce = Math.max(this.buff.bounce, 10);
-      if (type==='split') this.buff.split = Math.max(this.buff.split, 10);
+      if (type==='heal') {
+        this.player.hp = Math.min(this.player.maxHp, this.player.hp + 35);
+      } else {
+        this.buffSys.addTemp(type);
+      }
     },
     findAutoAimTarget(range) { let best=null, bestD2=Infinity, px=this.player.x, py=this.player.y; for (const z of this.zombies){ const dx=z.x-px, dy=z.y-py, d2=dx*dx+dy*dy; if(d2<=range*range && d2<bestD2){best=z; bestD2=d2;}} return best; },
 

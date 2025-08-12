@@ -105,5 +105,21 @@
     "burn": "燃烧",
     "slow": "减速",
     "shock": "震荡"
+  },
+  "game": {
+    "buff": {
+      "speed": "加速",
+      "spread": "散射",
+      "burn": "燃烧",
+      "pierce": "穿透",
+      "bounce": "弹跳",
+      "split": "分裂"
+    },
+    "augment": {
+      "atk": "攻击强化",
+      "aspd": "攻速提升",
+      "speed": "移速提升",
+      "hp": "生命提升"
+    }
   }
 }
