@@ -5,17 +5,17 @@
     <!-- HUD -->
     <div class="hud">
       <div class="stats">
-        <span>{{ $t('game.score') }}: {{ score }}</span>
-        <span>{{ $t('game.best') }}: {{ bestScore }}</span>
-        <span>{{ $t('game.combo') }}: {{ combo }}x</span>
-        <span>{{ $t('game.hp') }}: {{ Math.max(0, Math.ceil(player.hp)) }}</span>
-        <span>{{ $t('game.wave') }}: {{ wave }}</span>
-        <span>{{ $t('game.boss') }}: {{ Math.ceil(bossTimer) }}{{ $t('game.seconds') }}</span>
-        <span v-if="paused">⏸ {{ $t('game.paused') }}</span>
+        <span>得分: {{ score }}</span>
+        <span>最高: {{ bestScore }}</span>
+        <span>连击: {{ combo }}x</span>
+        <span>生命: {{ Math.max(0, Math.ceil(player.hp)) }}</span>
+        <span>波次: {{ wave }}</span>
+        <span>Boss: {{ Math.ceil(bossTimer) }}秒</span>
+        <span v-if="paused">⏸ 暂停</span>
         <span v-if="gamepad.name" class="pad">🎮 {{ gamepad.name }}</span>
-        <span v-if="autoAim.enabled && isTouchDevice" class="pad">🎯 {{ $t('game.aimAssist') }}</span>
-        <span v-if="!audio.ready" class="pad">🔇 {{ $t('game.tapToEnableSound') }}</span>
-        <span v-if="!assets.ready" class="pad">🖼️ {{ $t('game.loadingImages') }}</span>
+        <span v-if="autoAim.enabled && isTouchDevice" class="pad">🎯 辅助瞄准</span>
+        <span v-if="!audio.ready" class="pad">🔇 点击启用声音</span>
+        <span v-if="!assets.ready" class="pad">🖼️ 正在加载图片</span>
       </div>
 
       <div class="buffs" v-if="permanentBuffs.length">
@@ -28,35 +28,35 @@
       <div class="buffs" v-if="activeBuffs.length">
         <div class="buff" v-for="b in activeBuffs" :key="b.kind">
           <span class="tag">{{ b.kind }}</span>
-          <span class="time">{{ b.left.toFixed(1) }}{{ $t('game.seconds') }}</span>
+          <span class="time">{{ b.left.toFixed(1) }}秒</span>
         </div>
       </div>
 
       <div class="actions">
 
-        <button @click="togglePause">{{ paused ? $t('game.resume') : $t('game.pause') }}</button>
-        <button @click="toggleAutoFire">{{ autoFire ? $t('game.autoFireOn') : $t('game.autoFireOff') }}</button>
-        <button @click="toggleFullscreen">{{ isAnyFullscreen ? $t('game.exitFullscreen') : $t('game.fullscreen') }}</button>
-        <button @click="openSettings">{{ $t('game.settings') }}</button>
+        <button @click="togglePause">{{ paused ? '继续' : '暂停' }}</button>
+        <button @click="toggleAutoFire">{{ autoFire ? '自动射击开' : '自动射击关' }}</button>
+        <button @click="toggleFullscreen">{{ isAnyFullscreen ? '退出全屏' : '全屏' }}</button>
+        <button @click="openSettings">设置</button>
       </div>
       <SettingsPanel v-if="settingsOpen" :showRestart="true" :allowSave="true" @save="saveAndExit" @restart="restart" @close="closeSettings" />
 
       <div class="tips">
-        {{ $t('game.tips') }}
+        提示：WASD 移动，鼠标射击
       </div>
     </div>
 
     <div v-if="gameOver" class="game-over">
-      <p>{{ $t('game.gameOver', { score }) }}</p>
-      <button @click="restart">{{ $t('game.restart') }}</button>
-      <button @click="exitToHome">{{ $t('game.backHome') }}</button>
+      <p>游戏结束：得分 {{ score }}</p>
+      <button @click="restart">重新开始</button>
+      <button @click="exitToHome">返回主页</button>
     </div>
 
     <div v-if="augmentChoices.length" class="augment-select">
-      <p>{{ $t('game.chooseAugment') }}</p>
+      <p>选择增益</p>
       <div class="options">
         <button v-for="a in augmentChoices" :key="a.id" @click="pickAugment(a)">
-          {{ $t(a.nameKey) }}
+          {{ a.name }}
         </button>
       </div>
     </div>
@@ -86,6 +86,9 @@
 
 <script>
 import SettingsPanel from '../components/SettingsPanel.vue'
+import modes from '@/game/config/modes.config.js'
+import SaveSystem from '@/game/systems/SaveSystem.js'
+import WeaponSystem from '@/game/weapons/WeaponSystem.js'
 const LS_KEY = 'zombie-best-score-v1';
 
 /* ===== 内置SVG精灵（可替换为你的 PNG/SVG 地址） ===== */
@@ -128,10 +131,10 @@ function seedFrom(cx, cy, worldSeed){const s=((cx*73856093)^(cy*19349663)^worldS
 
 // 永久增益（Augments）定义
 const AUGMENTS = [
-  { id: 'atk',  nameKey: 'game.augment.atk',  apply(g) { g.player.damage *= 1.2; } },
-  { id: 'aspd', nameKey: 'game.augment.aspd', apply(g) { g.player.fireInterval *= 0.9; } },
-  { id: 'speed', nameKey: 'game.augment.speed', apply(g) { g.player.baseSpeed *= 1.1; } },
-  { id: 'hp',   nameKey: 'game.augment.hp',   apply(g) { g.player.maxHp += 20; g.player.hp += 20; } }
+  { id: 'atk',  name: '攻击强化',  apply(g) { g.player.damage *= 1.2; } },
+  { id: 'aspd', name: '攻速提升', apply(g) { g.player.fireInterval *= 0.9; } },
+  { id: 'speed', name: '移速提升', apply(g) { g.player.baseSpeed *= 1.1; } },
+  { id: 'hp',   name: '生命提升', apply(g) { g.player.maxHp += 20; g.player.hp += 20; } }
 ];
 
 export default {
@@ -192,6 +195,7 @@ export default {
 
       // entities
       bullets: [], zombies: [], particles: [], drops: [],
+      weaponSys: null,
 
       // spawn
       spawnTimer: 0, spawnInterval: 1.0, wave: 1,
@@ -245,22 +249,21 @@ export default {
   computed: {
     settings() { return this.$store.state.settings; },
     activeBuffs() {
-      const t = this.$t
       const list = [];
-      if (this.buff.speed > 0)  list.push({ kind: t('game.buff.speed'), left: this.buff.speed });
-      if (this.buff.spread > 0) list.push({ kind: t('game.buff.spread'), left: this.buff.spread });
-      if (this.buff.burn > 0)   list.push({ kind: t('game.buff.burn'), left: this.buff.burn });
-      if (this.buff.pierce > 0) list.push({ kind: t('game.buff.pierce'), left: this.buff.pierce });
-      if (this.buff.bounce > 0) list.push({ kind: t('game.buff.bounce'), left: this.buff.bounce });
-      if (this.buff.split > 0)  list.push({ kind: t('game.buff.split'), left: this.buff.split });
+      if (this.buff.speed > 0)  list.push({ kind: '加速', left: this.buff.speed });
+      if (this.buff.spread > 0) list.push({ kind: '散射', left: this.buff.spread });
+      if (this.buff.burn > 0)   list.push({ kind: '燃烧', left: this.buff.burn });
+      if (this.buff.pierce > 0) list.push({ kind: '穿透', left: this.buff.pierce });
+      if (this.buff.bounce > 0) list.push({ kind: '弹跳', left: this.buff.bounce });
+      if (this.buff.split > 0)  list.push({ kind: '分裂', left: this.buff.split });
       return list;
     },
     permanentBuffs() {
-      const t = this.$t;
+      const nameMap = { atk: '攻击强化', aspd: '攻速提升', speed: '移速提升', hp: '生命提升' };
       const list = [];
       for (const k in this.permaBuffs) {
         const lv = this.permaBuffs[k];
-        if (lv > 0) list.push({ id: k, name: t(`game.augment.${k}`), level: lv });
+        if (lv > 0) list.push({ id: k, name: nameMap[k] || k, level: lv });
       }
       return list;
     },
@@ -319,8 +322,32 @@ export default {
     document.addEventListener('fullscreenchange', this.onFullscreenChange);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
 
+    const q = this.$route.query;
+    this.mode = q.mode || 'ENDLESS';
+    this.chapterId = q.chapterId;
+    this.player.weaponId = q.weapon || 'mg';
+    this.weaponSys = new WeaponSystem({ state: this, audio: this.audio });
+    this.weaponSys.switch(this.player.weaponId);
+    if (this.mode === 'PROGRESSION' && this.chapterId) {
+      const ch = modes.PROGRESSION.chapters.find(c=>c.id===this.chapterId);
+      if (ch) this.worldSeed = ch.seed;
+    }
     this.reset();
-    const saveId = this.$route.query.save;
+    const meta = new SaveSystem().loadMeta();
+    const inv = meta?.inventory?.weapons?.[this.player.weaponId];
+    const wlv = inv?.level || 0;
+    const skinId = inv?.skins?.equipped || 'default';
+    this.weaponSys.applyLevel(this.player.weaponId, wlv);
+    this.weaponSys.s.weapon.skinId = skinId;
+    if (meta.trees) {
+      for (const tree of Object.values(meta.trees)) {
+        for (const [nodeId, lv] of Object.entries(tree)) {
+          if (nodeId==='atk_1') this.player.damage += 2*lv;
+          if (nodeId==='hp_1') { this.player.maxHp += 12*lv; this.player.hp = this.player.maxHp; }
+        }
+      }
+    }
+    const saveId = q.save;
     if (saveId) this.loadSave(saveId);
 
     // load sprites & run
@@ -921,40 +948,79 @@ export default {
       // 开火
       const touchFire = (this.isTouchDevice && this.touch.right.active && (this.touch.right.mag > 0.25 || (this.autoAim.highlight && this.touch.right.mag > this.autoAim.minStickToFire)));
       const shouldFire = this.autoFire || this.mouse.down || this.gp.fire || touchFire;
-      this.player.fireCooldown = Math.max(0, this.player.fireCooldown - dt);
-      if (shouldFire && this.player.fireCooldown <= 0) {
-        this.fireBullet();
-        const base = this.player.fireInterval * (this.buff.spread > 0 ? 0.83 : 1.0);
-        this.player.fireCooldown = base;
-      }
+      this.weaponSys.update(dt, this.player.dir, shouldFire);
 
       // 子弹
       for (let i = this.bullets.length - 1; i >= 0; i--) {
         const b = this.bullets[i];
-        b.x += Math.cos(b.dir) * b.speed * dt;
-        b.y += Math.sin(b.dir) * b.speed * dt;
-        if (b.homing) {
-          const tDir = Math.atan2(this.player.y - b.y, this.player.x - b.x);
-          const diff = ((tDir - b.dir + Math.PI) % (Math.PI * 2)) - Math.PI;
-          const maxTurn = 2.5 * dt;
-          b.dir += this.clamp(diff, -maxTurn, maxTurn);
-        }
-        b.life -= dt;
-        if (this.pointHitObstacle(b.x, b.y)) {
-          if (b.bounce && b.bounce > 0) {
-            b.dir += Math.PI;
-            b.bounce--;
-            b.x += Math.cos(b.dir) * 4;
-            b.y += Math.sin(b.dir) * 4;
-          } else {
-            b.life = 0;
+
+        if (b.type === 'beam' && b.from === 'player') {
+          b.life -= dt;
+          if (b.life <= 0) { this.bullets.splice(i,1); continue; }
+          b._tick = (b._tick || 0) - dt;
+          if (b._tick <= 0) {
+            b._tick = b.tick;
+            const cos = Math.cos(b.dir), sin = Math.sin(b.dir);
+            for (const z of this.zombies) {
+              const dx = z.x - b.x, dy = z.y - b.y;
+              const proj = dx*cos + dy*sin;
+              if (proj < -z.r || proj > b.range + z.r) continue;
+              const px = b.x + cos * Math.max(0, Math.min(b.range, proj));
+              const py = b.y + sin * Math.max(0, Math.min(b.range, proj));
+              const dist = Math.hypot(z.x - px, z.y - py);
+              if (dist <= z.r + b.width) {
+                z.hp -= b.tickDmg;
+              }
+            }
           }
+          continue;
         }
-        if (b.life <= 0) { this.bullets.splice(i, 1); continue; }
-        if (b.from === 'enemy' && this.circleHit(b.x, b.y, 3, this.player.x, this.player.y, this.player.r)) {
+
+        b.x += Math.cos(b.dir || 0) * (b.speed || 0) * dt;
+        b.y += Math.sin(b.dir || 0) * (b.speed || 0) * dt;
+        b.life -= dt;
+
+        if (this.pointHitObstacle(b.x, b.y)) {
+          b.life = 0;
+        }
+
+        if (b.from === 'player') {
+          for (const z of this.zombies) {
+            if (this.circleHit(b.x, b.y, 3, z.x, z.y, z.r)) {
+              if (b.explodeOnExpire) {
+                b.life = 0;
+              } else {
+                z.hp -= b.dmg || 1;
+                b.life = 0;
+              }
+              break;
+            }
+          }
+        } else if (b.from === 'enemy' && this.circleHit(b.x, b.y, 3, this.player.x, this.player.y, this.player.r)) {
           this.player.hp -= b.dmg;
-          this.bullets.splice(i, 1);
+          b.life = 0;
         }
+
+        if (b.explodeOnExpire && b.life <= 0) {
+          const radius = b.explosion?.radius || 96;
+          const falloff = b.explosion?.falloff ?? 0.5;
+          for (const z of this.zombies) {
+            const dx = z.x - b.x, dy = z.y - b.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist <= radius) {
+              const ratio = 1 - dist / radius;
+              const dealt = (b.dmg || 0) * (falloff + (1 - falloff) * ratio);
+              z.hp -= dealt;
+            }
+          }
+          const pal = this.skinPalette();
+          this.makeDeathBurst?.(b.x, b.y, pal.explosion || '#ffcf6b');
+          this.sfxHit();
+          this.bullets.splice(i,1);
+          continue;
+        }
+
+        if (b.life <= 0) { this.bullets.splice(i,1); }
       }
 
       // Boss刷新
@@ -1067,6 +1133,34 @@ export default {
       if (this.score > this.bestScore) { this.bestScore = this.score; localStorage.setItem(LS_KEY, String(this.bestScore)); }
     },
 
+    /* ===== Skin Palette（根据当前武器 & 皮肤返回颜色方案） ===== */
+    skinPalette(){
+      const wid = (this.weaponSys && this.weaponSys.currentId) || (this.weapon && this.weapon.id) || 'mg';
+      const skin = (this.weaponSys && this.weaponSys.s && this.weaponSys.s.weapon && this.weaponSys.s.weapon.skinId) || (this.weapon && this.weapon.skinId) || 'default';
+
+      // 基础三款皮肤的颜色方案；需要更多就按此扩充
+      const palettes = {
+        mg: {
+          default: { bulletCore:'#ffffff', bulletGlow:'#7aa2ff', beamCore:'#cfa5ff', beamGlow:'#d6b3ff', rocket:'#ffb347', explosion:'#ffd166', playerDot:'#7fb7ff', playerArrow:'#d6e7ff' },
+          desert:  { bulletCore:'#fff5e6', bulletGlow:'#f59e0b', beamCore:'#fde68a', beamGlow:'#fbbf24', rocket:'#f59e0b', explosion:'#fcd34d', playerDot:'#f59e0b', playerArrow:'#fde68a' },
+          neon:    { bulletCore:'#e0ffff', bulletGlow:'#22d3ee', beamCore:'#a78bfa', beamGlow:'#22c55e', rocket:'#22c55e', explosion:'#34d399', playerDot:'#22d3ee', playerArrow:'#a78bfa' },
+        },
+        rocket: {
+          default: { bulletCore:'#ffffff', bulletGlow:'#ffb347', beamCore:'#cfa5ff', beamGlow:'#d6b3ff', rocket:'#ffb347', explosion:'#ffd166', playerDot:'#7fb7ff', playerArrow:'#d6e7ff' },
+          desert:  { bulletCore:'#fff5e6', bulletGlow:'#f59e0b', beamCore:'#fde68a', beamGlow:'#fbbf24', rocket:'#f59e0b', explosion:'#fcd34d', playerDot:'#f59e0b', playerArrow:'#fde68a' },
+          neon:    { bulletCore:'#e0ffff', bulletGlow:'#22c55e', beamCore:'#a78bfa', beamGlow:'#22d3ee', rocket:'#22c55e', explosion:'#34d399', playerDot:'#22d3ee', playerArrow:'#a78bfa' },
+        },
+        laser: {
+          default: { bulletCore:'#ffffff', bulletGlow:'#9cf',    beamCore:'#cfa5ff', beamGlow:'#d6b3ff', rocket:'#ffb347', explosion:'#ffd166', playerDot:'#7fb7ff', playerArrow:'#d6e7ff' },
+          desert:  { bulletCore:'#fff5e6', bulletGlow:'#fbbf24', beamCore:'#fde68a', beamGlow:'#f59e0b', rocket:'#f59e0b', explosion:'#fcd34d', playerDot:'#f59e0b', playerArrow:'#fde68a' },
+          neon:    { bulletCore:'#e0ffff', bulletGlow:'#22d3ee', beamCore:'#a78bfa', beamGlow:'#22c55e', rocket:'#22c55e', explosion:'#34d399', playerDot:'#22d3ee', playerArrow:'#a78bfa' },
+        }
+      };
+
+      const p = (palettes[wid] && palettes[wid][skin]) || palettes.mg.default;
+      return p;
+    },
+
     /* ===== Drawing ===== */
     draw() {
       const ctx = this.ctx;
@@ -1089,18 +1183,69 @@ export default {
         ctx.fillStyle = '#111'; ctx.fillText(d.icon, 0, 1); ctx.restore();
       }
 
-      // 子弹
+      // 子弹（按皮肤上色；敌方保留原色）
+      const pal = this.skinPalette();
       for (const b of this.bullets) {
-        const color = b.color ? b.color : (b.burn ? '#ffb347' : (b.from === 'enemy' ? '#f99' : '#9cf'));
+        // 激光另画（见下方 beam 绘制），这里跳过 beam
+        if (b.type === 'beam') continue;
+
+        let core = '#ffffff', glow = '#9cf';
+        if (b.from === 'player') {
+          // 玩家子弹：皮肤主色
+          if (b.explodeOnExpire) { // 火箭弹体
+            core = '#ffffff';
+            glow = pal.rocket || pal.bulletGlow;
+          } else if (b.burn) { // 燃烧弹
+            core = pal.bulletCore || '#ffffff';
+            glow = pal.bulletGlow || '#ffb347';
+          } else {
+            core = pal.bulletCore || '#ffffff';
+            glow = pal.bulletGlow || '#9cf';
+          }
+        } else {
+          // 敌方子弹：保持原配色或 b.color
+          glow = b.color ? b.color : '#f99';
+        }
+
         const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 3);
-        grad.addColorStop(0, '#fff');
-        grad.addColorStop(1, color);
+        grad.addColorStop(0, core);
+        grad.addColorStop(1, glow);
+
         ctx.globalAlpha = (b.pierce && b.pierce > 0) ? 0.55 : 1;
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
+      }
+
+      // —— 激光（beam）按皮肤配色 —— //
+      for (const b of this.bullets) {
+        if (b.type !== 'beam') continue;
+        const pal = this.skinPalette();
+        const ex = b.x + Math.cos(b.dir)*b.range;
+        const ey = b.y + Math.sin(b.dir)*b.range;
+
+        // 外发光层
+        ctx.save();
+        ctx.globalAlpha = 0.35;
+        ctx.strokeStyle = pal.beamGlow || '#d6b3ff';
+        ctx.lineWidth = Math.max(1, (b.width||6) * 2.4);
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.y);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+
+        // 核心线
+        ctx.globalAlpha = 0.95;
+        ctx.strokeStyle = pal.beamCore || '#cfa5ff';
+        ctx.lineWidth = b.width || 6;
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.y);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+
+        ctx.restore();
       }
 
       // 僵尸（贴图 + 血条 + 数值HP）
@@ -1116,7 +1261,9 @@ export default {
 
         const bw = z.r * 2, bh = 4, bx = z.x - z.r, by = z.y - z.r - 12;
         ctx.fillStyle = '#222'; ctx.fillRect(bx, by, bw, bh);
-        ctx.fillStyle = z.elite ? '#ff7b7b' : '#e55'; ctx.fillRect(bx, by, (z.hp/z.maxHp)*bw, bh);
+        const hpRatio = Math.max(0, Math.min(1, z.hp / z.maxHp));
+        ctx.fillStyle = z.elite ? '#ff7b7b' : '#e55';
+        ctx.fillRect(bx, by, hpRatio * bw, bh);
         const txt = Math.max(0, Math.ceil(z.hp)).toString();
         ctx.font = 'bold 12px ui-sans-serif, system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
         ctx.strokeStyle = 'rgba(0,0,0,0.9)'; ctx.lineWidth = 3; ctx.strokeText(txt, z.x, by - 2);
@@ -1151,9 +1298,9 @@ export default {
       if (this.player.hp <= 0 || this.paused) {
         ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, screenW, screenH);
         ctx.fillStyle = '#fff'; ctx.font = 'bold 32px ui-sans-serif, system-ui'; ctx.textAlign = 'center';
-        ctx.fillText(this.paused ? this.$t('game.paused') : this.$t('game.youDied'), screenW / 2, screenH / 2 - 10);
+        ctx.fillText(this.paused ? '暂停' : '你死了', screenW / 2, screenH / 2 - 10);
         ctx.font = '16px ui-sans-serif, system-ui';
-        ctx.fillText(this.$t('game.pressStart'), screenW / 2, screenH / 2 + 20);
+        ctx.fillText('按下开始键继续', screenW / 2, screenH / 2 + 20);
       }
     },
     drawTerrain(camX, camY, w, h) {
@@ -1186,6 +1333,44 @@ export default {
     },
 
     /* ===== Minimap / Radar ===== */
+    /* ===== Minimap: 敌人点位样式（按类型/精英/Boss） ===== */
+    enemyMinimapStyle(z){
+      // 基础颜色表：按 type 区分，可自行增减
+      const typeColor = {
+        zombie:   '#88f88e',
+        crawler:  '#6ee7b7',
+        spitter:  '#34d399',
+        ranger:   '#93c5fd',
+        charger:  '#f59e0b',
+        bomber:   '#ef4444',
+        summoner: '#b39ddb',
+        shield:   '#38bdf8',
+        ghost:    '#cbd5e1',
+        brute:    '#ff8d4f',
+
+        // Boss
+        boss_tyrant:    '#ff4757',
+        boss_matriarch: '#ff4ea3'
+      };
+
+      // 取色：优先类型；未知类型给个中性红
+      let fill = typeColor[z.type] || (z.boss ? '#ff4757' : '#ff6b6b');
+
+      // 精英高亮：外圈描边
+      const stroke = z.elite ? 'rgba(255,255,255,0.85)' : 'transparent';
+      const strokeWidth = z.elite ? 1.5 : 0;
+
+      // 点大小：boss>精英>普通（随半径微调）
+      let r = z.boss ? 5.5 : (z.elite ? 3.5 : 2.5);
+      // 轻微按实际碰撞半径缩放（保证可读，夹在 2~6）
+      r = Math.max(2, Math.min(6, r * (z.r / 12)));
+
+      // Ghost 半透明
+      const alpha = z.type === 'ghost' ? 0.75 : 1.0;
+
+      return { fill, stroke, strokeWidth, r, alpha };
+    },
+
     getMinimapRect() {
       const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
       const mm = this.minimap;
@@ -1247,33 +1432,58 @@ export default {
         }
       }
 
-      // 怪物点
-      const rMax = Math.min(w, h) / 2 - 8; // 雷达边缘
+      // 怪物点（按类型/精英/Boss 着色）
+      const rMax = Math.min(w, h) / 2 - 8;
       for (const z of this.zombies) {
         const dx = (z.x - this.player.x) * scale;
         const dy = (z.y - this.player.y) * scale;
         let px = cx + dx, py = cy + dy;
-        // 边缘夹紧：超出雷达范围的怪，贴到边框
+
+        // 边缘夹紧：超出雷达范围的怪贴边显示
         const dist = Math.hypot(dx, dy);
         if (dist > rMax) { const k = rMax / dist; px = cx + dx * k; py = cy + dy * k; }
-        if (z.boss) {
-          ctx.fillStyle = '#ff4757';
-          ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#fff'; ctx.font = '8px ui-sans-serif,system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText('B', px, py + 0.5);
-        } else {
+
+        const sty = this.enemyMinimapStyle(z);
+
+        // 外描边（精英）
+        if (sty.strokeWidth > 0){
           ctx.beginPath();
-          ctx.fillStyle = z.elite ? '#ff8d4f' : '#88f88e';
-          ctx.arc(px, py, z.elite ? 3.5 : 2.5, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = sty.stroke;
+          ctx.lineWidth = sty.strokeWidth;
+          ctx.arc(px, py, sty.r + 1, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // 填充圆点
+        ctx.beginPath();
+        ctx.globalAlpha = sty.alpha;
+        ctx.fillStyle = sty.fill;
+        ctx.arc(px, py, sty.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        // Boss 文字标识（保持你原有的 “B”）
+        if (z.boss){
+          ctx.fillStyle = '#fff';
+          ctx.font = '8px ui-sans-serif,system-ui';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('B', px, py + 0.5);
         }
       }
 
+      const palMM = this.skinPalette();
       // 玩家点
-      ctx.beginPath(); ctx.fillStyle = '#7fb7ff'; ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath();
+      ctx.fillStyle = palMM.playerDot || '#7fb7ff';
+      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.fill();
+
       // 朝向箭头
       ctx.save(); ctx.translate(cx, cy); ctx.rotate(this.player.dir);
       ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-4, 3); ctx.lineTo(-4, -3); ctx.closePath();
-      ctx.fillStyle = '#d6e7ff'; ctx.fill(); ctx.restore();
+      ctx.fillStyle = palMM.playerArrow || '#d6e7ff';
+      ctx.fill(); ctx.restore();
 
       ctx.restore();
     },
@@ -1282,34 +1492,6 @@ export default {
     toggleMapOpen() { this.$store.commit('setMinimapOpen', !this.$store.state.settings.minimapOpen); },
 
     /* ===== Gameplay helpers ===== */
-    fireBullet() {
-      const p = this.player;
-      const baseDir = p.dir;
-      const shots = (this.buff.spread > 0 ? 3 : 1);
-      const spread = 0.18;
-      for (let i = 0; i < shots; i++) {
-        const offset = (i - (shots - 1) / 2) * spread;
-        const dir = baseDir + offset;
-        const muzzleX = p.x + Math.cos(dir) * (p.r + 12);
-        const muzzleY = p.y + Math.sin(dir) * (p.r + 12);
-        this.bullets.push({
-          x: muzzleX,
-          y: muzzleY,
-          dir,
-          speed: 740,
-          dmg: this.player.damage * (shots > 1 ? 0.65 : 1),
-          life: 0.9,
-          from: 'player',
-          pierce: this.buff.pierce > 0 ? 2 : 0,
-          bounce: this.buff.bounce > 0 ? 2 : 0,
-          burn: this.buff.burn > 0,
-          split: this.buff.split > 0,
-          fromSplit: false
-        });
-        this.makeMuzzleFlash(muzzleX, muzzleY);
-      }
-      this.sfxShot();
-    },
     spawnZombieRing() {
       const tries = 8;
       for (let k = 0; k < tries; k++) {
