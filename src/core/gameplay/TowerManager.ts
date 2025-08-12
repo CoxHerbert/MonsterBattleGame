@@ -1,10 +1,12 @@
-import { Tower } from './Tower'
+import { Tower, TowerStats } from './Tower'
 import type { TowerDef } from '../data/types'
+import { pickTarget } from './Targeting'
+import { ProjectileManager } from './ProjectileManager'
 
 export class TowerManager {
   towers: Tower[] = []
 
-  constructor(private defs: Record<string, TowerDef>) {}
+  constructor(private defs: Record<string, TowerDef>, private projectiles: ProjectileManager) {}
 
   placeTower(towerId: string, x: number, y: number): Tower | null {
     const def = this.defs[towerId]
@@ -41,6 +43,13 @@ export class TowerManager {
   update(dt: number): void {
     for (const t of this.towers) {
       t.cooldown = Math.max(0, t.cooldown - dt)
+      if (t.cooldown <= 0) {
+        const target = pickTarget({ x: t.x, y: t.y }, t.stats.range, t.stats.targetPriority!)
+        if (target) {
+          this.projectiles.fire({ x: t.x, y: t.y }, target, t.stats as TowerStats, t.uid)
+          t.cooldown = 1 / t.stats.fireRate
+        }
+      }
     }
   }
 }

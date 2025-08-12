@@ -28,6 +28,11 @@ export class Enemy {
   }
 
   update(dt: number) {
+    const stunned = this.statusEffects.some(e => e.kind === 'stun')
+    const slowFactor = this.statusEffects.reduce((f, e) =>
+      e.kind === 'slow' ? f * (1 - (e.value ?? 0)) : f,
+    1)
+    const speed = this.moveSpeed * slowFactor
     const next = this.path[this.seg + 1]
     if (!next) {
       this.done = true
@@ -36,14 +41,16 @@ export class Enemy {
     const dx = next.x - this.x
     const dy = next.y - this.y
     const dist = Math.hypot(dx, dy)
-    const step = this.moveSpeed * dt
-    if (dist <= step) {
-      this.x = next.x
-      this.y = next.y
-      this.seg++
-    } else {
-      this.x += (dx / dist) * step
-      this.y += (dy / dist) * step
+    const step = speed * dt
+    if (!stunned) {
+      if (dist <= step) {
+        this.x = next.x
+        this.y = next.y
+        this.seg++
+      } else {
+        this.x += (dx / dist) * step
+        this.y += (dy / dist) * step
+      }
     }
   }
 }

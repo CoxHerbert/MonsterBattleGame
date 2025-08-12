@@ -123,7 +123,8 @@ export class Renderer {
       (g, e) => {
         const gg = g as Graphics
         gg.clear()
-        gg.beginFill(0xff0000)
+        const slowed = e.statusEffects.some(s => s.kind === 'slow')
+        gg.beginFill(slowed ? 0x00ffff : 0xff0000)
         gg.drawCircle(0, 0, e.size)
         gg.endFill()
         gg.position.set(e.x, e.y)
@@ -161,9 +162,10 @@ export class Renderer {
     this.rangeG.visible = false
   }
 
-  highlightTile(gx: number, gy: number) {
+  highlightTile(gx: number, gy: number, ok = true) {
     this.highlightG.clear()
-    this.highlightG.lineStyle(1, 0x00ffff, 0.8)
+    const color = ok ? 0x00ff00 : 0xff0000
+    this.highlightG.lineStyle(1, color, 0.8)
     this.highlightG.drawRect(gx * this.tileSize, gy * this.tileSize, this.tileSize, this.tileSize)
   }
 
