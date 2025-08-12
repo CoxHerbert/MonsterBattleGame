@@ -1,16 +1,16 @@
 <template>
   <div class="home">
     <header class="topbar">
-      <h1>{{ $t('home.title') }}</h1>
-      <CurrencyBar :gold="meta.soft" :core="meta.hard" @switchLang="switchLang" />
+      <h1>僵尸突围</h1>
+      <CurrencyBar :gold="meta.soft" :core="meta.hard" />
     </header>
 
     <section class="modes">
-      <ModeCard :title="$t('home.endless')" icon="♾"
-        :desc="$t('home.tipSelectMode')"
+      <ModeCard title="无尽模式" icon="♾"
+        desc="请选择模式开始游戏"
         @click="selectMode('ENDLESS')" />
-      <ModeCard :title="$t('home.progression')" icon="🗺"
-        :desc="$t('home.chapters')"
+      <ModeCard title="养成模式" icon="🗺"
+        desc="关卡"
         @click="selectMode('PROGRESSION')" />
     </section>
 
@@ -53,7 +53,7 @@
     <footer class="bottom">
       <LoadoutPanel v-if="mode==='PROGRESSION'" :loadout="loadout" :inventory="meta.inventory" @change="loadout=$event" />
       <button class="cta" :disabled="!canStart" @click="startGame">
-        {{ $t('btn.play') }}
+        开始游戏
       </button>
     </footer>
   </div>
@@ -85,10 +85,10 @@ export default {
     chapterId: null,
     tab: 'chapters',
     tabs: [
-      { key:'chapters', label: this.$t('home.chapters') },
-      { key:'talents',  label: this.$t('home.talents') },
-      { key:'shop',     label: this.$t('home.shop') },
-      { key:'armory',   label: this.$t('home.armory') }
+      { key:'chapters', label:'关卡' },
+      { key:'talents',  label:'天赋' },
+      { key:'shop',     label:'商店' },
+      { key:'armory',   label:'仓库' }
     ],
     meta: save.loadMeta(),
     trees: metaCfg.trees,
@@ -104,17 +104,6 @@ export default {
     }
   },
   methods:{
-    switchLang(){
-      const next = (this.$i18n.locale.value === 'zh-CN') ? 'en' : 'zh-CN'
-      this.$i18n.locale.value = next
-      localStorage.setItem('lang', next)
-      this.tabs = [
-        { key:'chapters', label: this.$t('home.chapters') },
-        { key:'talents',  label: this.$t('home.talents') },
-        { key:'shop',     label: this.$t('home.shop') },
-        { key:'armory',   label: this.$t('home.armory') }
-      ]
-    },
     selectMode(m){
       this.mode = m
       if (m==='PROGRESSION') this.tab='chapters'
@@ -158,7 +147,7 @@ export default {
     onShopBuy({ weaponId, price }){
       const inv = this.meta.inventory.weapons;
       if (inv[weaponId]?.owned) return;
-      if (this.meta.soft < price) { alert(this.$t('home.insufficient')); return; }
+      if (this.meta.soft < price) { alert('金币不足'); return; }
       this.meta.soft -= price;
       inv[weaponId] = { owned:true, level:0, rarity: wcfg[weaponId].rarity || 'common', skins:{ owned:['default'], equipped:'default' } };
       this.addSpend(weaponId, price);
@@ -169,7 +158,7 @@ export default {
       const inv = this.meta.inventory.weapons[weaponId];
       if (!inv?.owned) return;
       if (inv.skins.owned.includes(skinId)) return;
-      if (this.meta.soft < price) { alert(this.$t('home.insufficient')); return; }
+      if (this.meta.soft < price) { alert('金币不足'); return; }
       this.meta.soft -= price;
       inv.skins.owned.push(skinId);
       save.saveMeta(this.meta);
@@ -181,7 +170,7 @@ export default {
       const maxLv = (econ.rarity[inv.rarity]?.maxLv) || 5;
       if (inv.level >= maxLv) return;
       const cost = this.weaponCostAt(weaponId, inv.level);
-      if (this.meta.soft < cost) { alert(this.$t('home.insufficient')); return; }
+      if (this.meta.soft < cost) { alert('金币不足'); return; }
       this.meta.soft -= cost; inv.level += 1; this.addSpend(weaponId, cost);
       save.saveMeta(this.meta);
     },
@@ -189,7 +178,7 @@ export default {
       const inv = this.meta.inventory.weapons[weaponId]; if (!inv?.owned) return;
       const cost = this.weaponBulkCost(weaponId, count);
       if (cost<=0) return;
-      if (this.meta.soft < cost) { alert(this.$t('home.insufficient')); return; }
+      if (this.meta.soft < cost) { alert('金币不足'); return; }
       const maxLv = (econ.rarity[inv.rarity]?.maxLv) || 5;
       let up = 0, lv = inv.level;
       for (; up<count && lv<maxLv; up++, lv++);

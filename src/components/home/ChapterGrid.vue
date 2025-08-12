@@ -1,9 +1,9 @@
 <template>
   <div class="grid">
     <div v-for="ch in chapters" :key="ch.id" class="cell" @click="$emit('pick', ch)">
-      <div class="name">{{ $t(`chap.${ch.id}`) }}</div>
-      <div class="meta">{{ ch.minutes }} min</div>
-      <div class="badge" v-if="unlocks[`chapter:${ch.id}`]">{{ $t('home.selected') }}</div>
+      <div class="name">{{ ch.name }}</div>
+      <div class="meta">{{ ch.minutes }} 分钟</div>
+      <div class="badge" v-if="unlocks[`chapter:${ch.id}`]">已选择</div>
     </div>
   </div>
 </template>

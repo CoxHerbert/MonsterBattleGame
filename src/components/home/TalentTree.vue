@@ -1,11 +1,11 @@
 <template>
   <div class="tree">
     <div v-for="t in data" :key="t.id" class="branch">
-      <h4>{{ $t(`talent.${t.id}`) }}</h4>
+      <h4>{{ t.name }}</h4>
       <div class="nodes">
         <button v-for="n in t.nodes" :key="n.id" class="node" @click="upgrade(t.id, n)">
-          <div class="title">{{ $t(`talent.${n.id}`) }}</div>
-          <div class="lv">Lv {{ (levels[t.id]?.[n.id]||0) }}/{{ n.maxLv }}</div>
+          <div class="title">{{ n.name }}</div>
+          <div class="lv">等级 {{ (levels[t.id]?.[n.id]||0) }}/{{ n.maxLv }}</div>
         </button>
       </div>
     </div>

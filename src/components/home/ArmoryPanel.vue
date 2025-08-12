@@ -1,17 +1,17 @@
 <template>
   <div class="armory">
     <div class="card" v-for="w in list" :key="w.id">
-      <img :src="skinIcon(w.id, equippedSkinOf(w.id))" :alt="$t(w.nameKey)" />
+      <img :src="skinIcon(w.id, equippedSkinOf(w.id))" :alt="w.name" />
       <div class="meta">
         <div class="row1">
-          <div class="name">{{ $t(w.nameKey) }}</div>
-          <span class="rarity" :data-r="rarityOf(w.id)">{{ rarityOf(w.id) }}</span>
+          <div class="name">{{ w.name }}</div>
+          <span class="rarity" :data-r="rarityOf(w.id)">{{ rarityText(rarityOf(w.id)) }}</span>
         </div>
-        <div class="desc">{{ $t(w.descKey) }}</div>
+        <div class="desc">{{ w.desc }}</div>
         <div class="lv" v-if="isOwned(w.id)">
-          {{ $t('home.level') }} {{ levelOf(w.id) }} / {{ maxLvOf(w.id) }}
+          等级 {{ levelOf(w.id) }} / {{ maxLvOf(w.id) }}
         </div>
-        <div class="lv" v-else>{{ $t('home.notOwned') }}</div>
+        <div class="lv" v-else>未拥有</div>
 
         <!-- 皮肤装配 -->
         <div class="skins" v-if="isOwned(w.id)">
@@ -26,22 +26,22 @@
 
       <div class="ops">
         <button v-if="isOwned(w.id)" @click="$emit('equip', { weaponId:w.id })" :disabled="equipped===w.id">
-          {{ equipped===w.id ? $t('home.owned') : $t('home.equip') }}
+          {{ equipped===w.id ? '已装备' : '装备' }}
         </button>
 
         <!-- 升级一层 -->
         <button v-if="isOwned(w.id) && levelOf(w.id)<maxLvOf(w.id)" @click="$emit('upgrade', { weaponId:w.id })">
-          {{ $t('home.upgrade') }} +1 ({{ cost1(w.id) }})
+          升级 +1 ({{ cost1(w.id) }})
         </button>
 
         <!-- 批量升级 -->
         <button v-if="isOwned(w.id) && levelOf(w.id)<maxLvOf(w.id)" @click="$emit('upgrade-bulk', { weaponId:w.id, count:5 })">
-          {{ $t('home.upgradeX5') }} ({{ cost5(w.id) }})
+          升级×5 ({{ cost5(w.id) }})
         </button>
 
         <!-- 回收 -->
         <button v-if="isOwned(w.id) && w.id!=='mg'" class="danger" @click="$emit('sell', { weaponId:w.id })">
-          {{ $t('home.sell') }}
+          回收
         </button>
       </div>
     </div>
@@ -64,6 +64,7 @@ export default {
     maxLvOf(id){ return econ.rarity[this.rarityOf(id)]?.maxLv || 5; },
     hasSkin(id, sid){ return !!(this.inventory?.weapons?.[id]?.skins?.owned?.includes(sid)); },
     equippedSkinOf(id){ return this.inventory?.weapons?.[id]?.skins?.equipped || 'default'; },
+    rarityText(r){ return ({ common:'普通', rare:'稀有', epic:'史诗', legendary:'传奇' })[r] || r; },
     cost1(id){
       const lv = this.levelOf(id);
       const mul = econ.rarity[this.rarityOf(id)]?.upgradeMul || 1;

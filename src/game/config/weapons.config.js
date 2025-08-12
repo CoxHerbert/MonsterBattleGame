@@ -1,6 +1,6 @@
 export default {
   mg: {
-    id:'mg', nameKey:'weapon.mg', descKey:'weapon.mg.desc',
+    id:'mg', name:'机枪', desc:'高射速，中等单发伤害。',
     icon:'ICON_MG', bulletIcon:'ICON_BULLET',
     rarity: 'common',                 // ★ 新增默认稀有度
     skins: ['default','desert','neon'], // ★ 可购皮肤清单
@@ -14,7 +14,7 @@ export default {
   },
 
   rocket: {
-    id:'rocket', nameKey:'weapon.rocket', descKey:'weapon.rocket.desc',
+    id:'rocket', name:'火箭炮', desc:'范围爆炸，低射速。',
     icon:'ICON_ROCKET', bulletIcon:'ICON_ROCKET_AMMO',
     rarity: 'rare',
     skins: ['default','desert','neon'],
@@ -28,7 +28,7 @@ export default {
   },
 
   laser: {
-    id:'laser', nameKey:'weapon.laser', descKey:'weapon.laser.desc',
+    id:'laser', name:'激光枪', desc:'持续导引伤害，穿透直线目标。',
     icon:'ICON_LASER', bulletIcon:'ICON_BEAM',
     rarity: 'epic',
     skins: ['default','desert','neon'],

@@ -3,27 +3,27 @@
     <!-- 武器购买区域（与之前一致） -->
     <div class="row" v-for="w in list" :key="'w-'+w.id">
       <div class="left">
-        <img :src="weaponIcons[w.id]" :alt="$t(w.nameKey)" />
+        <img :src="weaponIcons[w.id]" :alt="w.name" />
         <div class="info">
-          <div class="name">{{ $t(w.nameKey) }}</div>
-          <div class="desc">{{ $t(w.descKey) }}</div>
+          <div class="name">{{ w.name }}</div>
+          <div class="desc">{{ w.desc }}</div>
         </div>
       </div>
       <div class="right">
-        <span v-if="isOwned(w.id)" class="owned">{{ $t('home.owned') }}</span>
+        <span v-if="isOwned(w.id)" class="owned">已拥有</span>
         <button v-else @click="buyWeapon(w.id)">
-          {{ $t('home.buy') }} {{ prices.weapon[w.id] }}
+          购买 {{ prices.weapon[w.id] }}
         </button>
       </div>
     </div>
 
     <!-- ★ 皮肤购买区域 -->
-    <h4 class="secTitle">Skins</h4>
+    <h4 class="secTitle">皮肤</h4>
     <div class="row" v-for="w in list" :key="'s-'+w.id">
       <div class="left">
         <div class="info">
-          <div class="name">{{ $t(w.nameKey) }}</div>
-          <div class="desc">Cosmetics</div>
+          <div class="name">{{ w.name }}</div>
+          <div class="desc">外观</div>
         </div>
       </div>
       <div class="right skins">
@@ -33,7 +33,7 @@
           :disabled="!isOwned(w.id) || hasSkin(w.id, sid)"
           @click="buySkin(w.id, sid)">
           <img :src="skinIcon(w.id, sid)" :alt="sid" />
-          <span v-if="hasSkin(w.id, sid)">{{ $t('home.owned') }}</span>
+          <span v-if="hasSkin(w.id, sid)">已拥有</span>
           <span v-else>{{ prices.skin[w.id][sid] }}</span>
         </button>
       </div>

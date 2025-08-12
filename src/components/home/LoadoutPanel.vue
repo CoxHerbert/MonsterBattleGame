@@ -1,9 +1,9 @@
 <template>
   <div class="loadout">
-    <label>{{ $t('home.loadout') }}</label>
+    <label>开局预设</label>
     <select v-model="local.weaponId" @change="emit">
       <option v-for="w in ownedWeapons" :key="w.id" :value="w.id">
-        {{ $t(w.nameKey) }}
+        {{ w.name }}
       </option>
     </select>
   </div>

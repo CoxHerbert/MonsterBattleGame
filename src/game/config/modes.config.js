@@ -1,7 +1,7 @@
 export default {
   ENDLESS: {
     id: 'ENDLESS',
-    nameKey: 'mode.endless',
+    name: '无尽模式',
     director: {
       bossWindowSec: [90, 120],
       spawnCurve: { baseRate: 0.6, maxRate: 2.4, rampSecTo80: 180 },
@@ -21,10 +21,10 @@ export default {
   },
   PROGRESSION: {
     id: 'PROGRESSION',
-    nameKey: 'mode.progression',
+    name: '养成模式',
     chapters: [
-      { id: '1-1', nameKey: 'ch.1.1', seed: 12345, minutes: 8, bossAtSec: [120, 150], goal: { type: 'defeat_boss' } },
-      { id: '1-2', nameKey: 'ch.1.2', seed: 22345, minutes: 10, bossAtSec: [180, 210], goal: { type: 'defeat_boss' } }
+      { id: '1-1', name: '第一章 · 绿地外围', seed: 12345, minutes: 8, bossAtSec: [120, 150], goal: { type: 'defeat_boss' } },
+      { id: '1-2', name: '第一章 · 工业走廊', seed: 22345, minutes: 10, bossAtSec: [180, 210], goal: { type: 'defeat_boss' } }
     ],
     director: {
       spawnCurve: { baseRate: 0.5, maxRate: 2.0, rampSecTo80: 210 },
