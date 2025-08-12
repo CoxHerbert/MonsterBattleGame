@@ -44,7 +44,7 @@
 
 <script>
 export default {
-  name: 'SettingsPanel',
+  name: 'SettingsDialog',
   props: {
     showRestart: { type: Boolean, default: false },
     allowSave: { type: Boolean, default: false }

@@ -6,7 +6,6 @@
       <button @click="start">{{ $t('home.start') }}</button>
       <button v-if="saves.length" @click="openSaves">{{ $t('home.continue') }}</button>
       <button @click="openSettings">{{ $t('home.settings') }}</button>
-      <button @click="startTD">Tower Defense</button>
     </div>
     <div class="board" v-if="scores.length">
       <h2>{{ $t('home.leaderboard') }}</h2>
@@ -21,16 +20,16 @@
       </ul>
       <button @click="savesOpen=false">{{ $t('home.close') }}</button>
     </div>
-    <SettingsPanel v-if="settingsOpen" @close="settingsOpen=false" />
+    <SettingsDialog v-if="settingsOpen" @close="settingsOpen=false" />
   </div>
 </template>
 
 <script>
-import SettingsPanel from '../components/SettingsPanel.vue'
+import SettingsDialog from '../components/SettingsDialog.vue'
 
 export default {
   name: 'HomeView',
-  components: { SettingsPanel },
+  components: { SettingsDialog },
   data() {
     return { settingsOpen: false, savesOpen: false }
   },
@@ -42,8 +41,7 @@ export default {
     start() { this.$router.push('/game') },
     openSettings() { this.settingsOpen = true },
     openSaves() { this.savesOpen = true },
-    continueGame(id) { this.$router.push({ path: '/game', query: { save: id } }) },
-    startTD() { this.$router.push('/tower') }
+    continueGame(id) { this.$router.push({ path: '/game', query: { save: id } }) }
   }
 }
 </script>

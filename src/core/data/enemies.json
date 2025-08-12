@@ -1,0 +1,4 @@
+[
+  { "id": "basic", "hp": 3, "armor": 0, "moveSpeed": 60, "bounty": 1 },
+  { "id": "elite", "hp": 10, "armor": 1, "moveSpeed": 50, "bounty": 5 }
+]

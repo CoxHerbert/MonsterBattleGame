@@ -1,0 +1,4 @@
+[
+  { "id": "arrow", "cost": 5, "range": 128, "damage": 1, "fireRate": 1 },
+  { "id": "cannon", "cost": 15, "range": 96, "damage": 3, "fireRate": 0.5 }
+]

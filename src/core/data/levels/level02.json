@@ -1,0 +1,11 @@
+{
+  "cols": 10,
+  "rows": 10,
+  "tileSize": 64,
+  "path": [ { "x": 0, "y": 5 }, { "x": 9, "y": 5 } ],
+  "spawn": { "x": 0, "y": 5 },
+  "end": { "x": 9, "y": 5 },
+  "startGold": 20,
+  "startLives": 20,
+  "waves": [ { "events": [ { "type": "basic", "count": 10, "interval": 1 } ] } ]
+}

@@ -1,5 +1,5 @@
-import type { DamageType } from './damage'
-import type { StatusEffect } from './enemy'
+import type { DamageType } from './DamageSystem'
+import type { StatusEffect } from './Enemy'
 
 export interface TowerStats {
   range: number

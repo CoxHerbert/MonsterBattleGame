@@ -6,8 +6,8 @@ export interface StatusEffect {
   duration: number
 }
 
-import type { Resistances } from './damage'
-import type { PathPoint } from './level'
+import type { Resistances } from './DamageSystem'
+import type { PathPoint } from '../data/types'
 
 export class Enemy {
   x: number
