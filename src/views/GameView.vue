@@ -5,17 +5,17 @@
     <!-- HUD -->
     <div class="hud">
       <div class="stats">
-        <span>{{ $t('game.score') }}: {{ score }}</span>
-        <span>{{ $t('game.best') }}: {{ bestScore }}</span>
-        <span>{{ $t('game.combo') }}: {{ combo }}x</span>
-        <span>{{ $t('game.hp') }}: {{ Math.max(0, Math.ceil(player.hp)) }}</span>
-        <span>{{ $t('game.wave') }}: {{ wave }}</span>
-        <span>{{ $t('game.boss') }}: {{ Math.ceil(bossTimer) }}{{ $t('game.seconds') }}</span>
-        <span v-if="paused">⏸ {{ $t('game.paused') }}</span>
+        <span>得分: {{ score }}</span>
+        <span>最高: {{ bestScore }}</span>
+        <span>连击: {{ combo }}x</span>
+        <span>生命: {{ Math.max(0, Math.ceil(player.hp)) }}</span>
+        <span>波次: {{ wave }}</span>
+        <span>Boss: {{ Math.ceil(bossTimer) }}秒</span>
+        <span v-if="paused">⏸ 暂停</span>
         <span v-if="gamepad.name" class="pad">🎮 {{ gamepad.name }}</span>
-        <span v-if="autoAim.enabled && isTouchDevice" class="pad">🎯 {{ $t('game.aimAssist') }}</span>
-        <span v-if="!audio.ready" class="pad">🔇 {{ $t('game.tapToEnableSound') }}</span>
-        <span v-if="!assets.ready" class="pad">🖼️ {{ $t('game.loadingImages') }}</span>
+        <span v-if="autoAim.enabled && isTouchDevice" class="pad">🎯 辅助瞄准</span>
+        <span v-if="!audio.ready" class="pad">🔇 点击启用声音</span>
+        <span v-if="!assets.ready" class="pad">🖼️ 正在加载图片</span>
       </div>
 
       <div class="buffs" v-if="permanentBuffs.length">
@@ -28,35 +28,35 @@
       <div class="buffs" v-if="activeBuffs.length">
         <div class="buff" v-for="b in activeBuffs" :key="b.kind">
           <span class="tag">{{ b.kind }}</span>
-          <span class="time">{{ b.left.toFixed(1) }}{{ $t('game.seconds') }}</span>
+          <span class="time">{{ b.left.toFixed(1) }}秒</span>
         </div>
       </div>
 
       <div class="actions">
 
-        <button @click="togglePause">{{ paused ? $t('game.resume') : $t('game.pause') }}</button>
-        <button @click="toggleAutoFire">{{ autoFire ? $t('game.autoFireOn') : $t('game.autoFireOff') }}</button>
-        <button @click="toggleFullscreen">{{ isAnyFullscreen ? $t('game.exitFullscreen') : $t('game.fullscreen') }}</button>
-        <button @click="openSettings">{{ $t('game.settings') }}</button>
+        <button @click="togglePause">{{ paused ? '继续' : '暂停' }}</button>
+        <button @click="toggleAutoFire">{{ autoFire ? '自动射击开' : '自动射击关' }}</button>
+        <button @click="toggleFullscreen">{{ isAnyFullscreen ? '退出全屏' : '全屏' }}</button>
+        <button @click="openSettings">设置</button>
       </div>
       <SettingsPanel v-if="settingsOpen" :showRestart="true" :allowSave="true" @save="saveAndExit" @restart="restart" @close="closeSettings" />
 
       <div class="tips">
-        {{ $t('game.tips') }}
+        提示：WASD 移动，鼠标射击
       </div>
     </div>
 
     <div v-if="gameOver" class="game-over">
-      <p>{{ $t('game.gameOver', { score }) }}</p>
-      <button @click="restart">{{ $t('game.restart') }}</button>
-      <button @click="exitToHome">{{ $t('game.backHome') }}</button>
+      <p>游戏结束：得分 {{ score }}</p>
+      <button @click="restart">重新开始</button>
+      <button @click="exitToHome">返回主页</button>
     </div>
 
     <div v-if="augmentChoices.length" class="augment-select">
-      <p>{{ $t('game.chooseAugment') }}</p>
+      <p>选择增益</p>
       <div class="options">
         <button v-for="a in augmentChoices" :key="a.id" @click="pickAugment(a)">
-          {{ $t(a.nameKey) }}
+          {{ a.name }}
         </button>
       </div>
     </div>
@@ -131,10 +131,10 @@ function seedFrom(cx, cy, worldSeed){const s=((cx*73856093)^(cy*19349663)^worldS
 
 // 永久增益（Augments）定义
 const AUGMENTS = [
-  { id: 'atk',  nameKey: 'game.augment.atk',  apply(g) { g.player.damage *= 1.2; } },
-  { id: 'aspd', nameKey: 'game.augment.aspd', apply(g) { g.player.fireInterval *= 0.9; } },
-  { id: 'speed', nameKey: 'game.augment.speed', apply(g) { g.player.baseSpeed *= 1.1; } },
-  { id: 'hp',   nameKey: 'game.augment.hp',   apply(g) { g.player.maxHp += 20; g.player.hp += 20; } }
+  { id: 'atk',  name: '攻击强化',  apply(g) { g.player.damage *= 1.2; } },
+  { id: 'aspd', name: '攻速提升', apply(g) { g.player.fireInterval *= 0.9; } },
+  { id: 'speed', name: '移速提升', apply(g) { g.player.baseSpeed *= 1.1; } },
+  { id: 'hp',   name: '生命提升', apply(g) { g.player.maxHp += 20; g.player.hp += 20; } }
 ];
 
 export default {
@@ -249,22 +249,21 @@ export default {
   computed: {
     settings() { return this.$store.state.settings; },
     activeBuffs() {
-      const t = this.$t
       const list = [];
-      if (this.buff.speed > 0)  list.push({ kind: t('game.buff.speed'), left: this.buff.speed });
-      if (this.buff.spread > 0) list.push({ kind: t('game.buff.spread'), left: this.buff.spread });
-      if (this.buff.burn > 0)   list.push({ kind: t('game.buff.burn'), left: this.buff.burn });
-      if (this.buff.pierce > 0) list.push({ kind: t('game.buff.pierce'), left: this.buff.pierce });
-      if (this.buff.bounce > 0) list.push({ kind: t('game.buff.bounce'), left: this.buff.bounce });
-      if (this.buff.split > 0)  list.push({ kind: t('game.buff.split'), left: this.buff.split });
+      if (this.buff.speed > 0)  list.push({ kind: '加速', left: this.buff.speed });
+      if (this.buff.spread > 0) list.push({ kind: '散射', left: this.buff.spread });
+      if (this.buff.burn > 0)   list.push({ kind: '燃烧', left: this.buff.burn });
+      if (this.buff.pierce > 0) list.push({ kind: '穿透', left: this.buff.pierce });
+      if (this.buff.bounce > 0) list.push({ kind: '弹跳', left: this.buff.bounce });
+      if (this.buff.split > 0)  list.push({ kind: '分裂', left: this.buff.split });
       return list;
     },
     permanentBuffs() {
-      const t = this.$t;
+      const nameMap = { atk: '攻击强化', aspd: '攻速提升', speed: '移速提升', hp: '生命提升' };
       const list = [];
       for (const k in this.permaBuffs) {
         const lv = this.permaBuffs[k];
-        if (lv > 0) list.push({ id: k, name: t(`game.augment.${k}`), level: lv });
+        if (lv > 0) list.push({ id: k, name: nameMap[k] || k, level: lv });
       }
       return list;
     },
@@ -1219,9 +1218,9 @@ export default {
       if (this.player.hp <= 0 || this.paused) {
         ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, screenW, screenH);
         ctx.fillStyle = '#fff'; ctx.font = 'bold 32px ui-sans-serif, system-ui'; ctx.textAlign = 'center';
-        ctx.fillText(this.paused ? this.$t('game.paused') : this.$t('game.youDied'), screenW / 2, screenH / 2 - 10);
+        ctx.fillText(this.paused ? '暂停' : '你死了', screenW / 2, screenH / 2 - 10);
         ctx.font = '16px ui-sans-serif, system-ui';
-        ctx.fillText(this.$t('game.pressStart'), screenW / 2, screenH / 2 + 20);
+        ctx.fillText('按下开始键继续', screenW / 2, screenH / 2 + 20);
       }
     },
     drawTerrain(camX, camY, w, h) {
