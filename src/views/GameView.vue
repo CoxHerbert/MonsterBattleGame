@@ -113,6 +113,14 @@ const ELITE_SVG = encodeURIComponent(`
   <circle cx='27' cy='28' r='3' fill='#ffffff'/><circle cx='38' cy='30' r='2' fill='#ffffff'/>
   <path d='M24 38 Q32 42 40 38' stroke='#6a1200' stroke-width='3' fill='none' stroke-linecap='round'/>
 </svg>`);
+const BOSS_SVG = encodeURIComponent(`
+<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
+  <defs><radialGradient id='bg' cx='50%' cy='45%' r='60%'>
+    <stop offset='0%' stop-color='#ff9a9a'/><stop offset='100%' stop-color='#d10000'/></radialGradient></defs>
+  <circle cx='32' cy='32' r='16' fill='url(#bg)' stroke='#6b0000' stroke-width='2'/>
+  <circle cx='26' cy='30' r='3' fill='#ffffff'/><circle cx='38' cy='30' r='3' fill='#ffffff'/>
+  <path d='M24 40 Q32 46 40 40' stroke='#6b0000' stroke-width='3' fill='none' stroke-linecap='round'/>
+</svg>`);
 
 /* ===== 随机 & 地形工具 ===== */
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t^=t+Math.imul(t^t>>>7,61|t);return((t^t>>>14)>>>0)/4294967296;};}
@@ -192,6 +200,7 @@ export default {
       augmentChoices: [],
       permaBuffs: { atk: 0, aspd: 0, speed: 0, hp: 0 },
       spawnAfterChoice: false,
+      enemyPower: 1,
 
       // score
       score: 0, bestScore: 0, combo: 1, comboTimer: 0,
@@ -216,7 +225,7 @@ export default {
       },
 
       // assets
-      assets: { ready:false, player:null, zombie:null, elite:null },
+      assets: { ready:false, player:null, zombie:null, elite:null, boss:null },
 
       // 小地图 / 雷达
       minimap: {
@@ -348,10 +357,11 @@ export default {
         mk(`data:image/svg+xml;utf8,${PLAYER_SVG}`),
         mk(`data:image/svg+xml;utf8,${ZOMBIE_SVG}`),
         mk(`data:image/svg+xml;utf8,${ELITE_SVG}`),
-      ]).then(([player, zombie, elite]) => {
-        this.assets.player = player; this.assets.zombie = zombie; this.assets.elite = elite;
+        mk(`data:image/svg+xml;utf8,${BOSS_SVG}`),
+      ]).then(([player, zombie, elite, boss]) => {
+        this.assets.player = player; this.assets.zombie = zombie; this.assets.elite = elite; this.assets.boss = boss;
       }).catch(() => {
-        this.assets.player = this.assets.zombie = this.assets.elite = null;
+        this.assets.player = this.assets.zombie = this.assets.elite = this.assets.boss = null;
       });
     },
     drawSprite(img, x, y, r, rotation = 0) {
@@ -1095,7 +1105,7 @@ export default {
 
       // 僵尸（贴图 + 血条 + 数值HP）
       for (const z of this.zombies) {
-        const img = z.elite ? this.assets.elite : this.assets.zombie;
+        const img = z.boss ? this.assets.boss : (z.elite ? this.assets.elite : this.assets.zombie);
         const rot = Math.atan2(this.player.y - z.y, this.player.x - z.x);
         ctx.save();
         ctx.shadowColor = 'rgba(0,0,0,0.35)';
@@ -1308,9 +1318,10 @@ export default {
         if (this.pointHitObstacle(x, y)) continue;
         const eliteChance = Math.min(0.18, 0.05 + this.wave * 0.012); const elite = Math.random() < eliteChance;
         const base = 1 + this.wave * 0.12; const zr = elite ? 16 : (12 + Math.random() * 10);
-        const hp = (elite ? 150 : 45) * base * (0.9 + Math.random() * 0.6);
-        const speed = (elite ? 70 : 60) + Math.random() * 30 + this.wave * 2;
-        const dmg = (elite ? 16 : 12) + this.wave * 0.6;
+        const power = this.enemyPower;
+        const hp = (elite ? 150 : 45) * base * (0.9 + Math.random() * 0.6) * power;
+        const speed = ((elite ? 70 : 60) + Math.random() * 30 + this.wave * 2) * power;
+        const dmg = ((elite ? 16 : 12) + this.wave * 0.6) * power;
         const hue = elite ? 12 + Math.random() * 24 : 100 + Math.random() * 160;
         const color = elite ? `hsl(${hue} 80% 55%)` : `hsl(${hue} 60% 55%)`;
         const ghost = Math.random() < 0.1;
@@ -1325,9 +1336,10 @@ export default {
       const stage = this.bossStage;
       const ang = Math.random() * Math.PI * 2; const r = 600 + Math.random() * 200;
       const x = this.player.x + Math.cos(ang) * r; const y = this.player.y + Math.sin(ang) * r;
-      const hp = (1200 + this.wave * 80) * (1 + (stage - 1) * 0.5);
-      const speed = (60 + this.wave * 2) * (1 + (stage - 1) * 0.2);
-      const dmg = (35 + this.wave * 1.5) * (1 + (stage - 1) * 0.25);
+      const power = this.enemyPower;
+      const hp = (1200 + this.wave * 80) * (1 + (stage - 1) * 0.5) * power;
+      const speed = (60 + this.wave * 2) * (1 + (stage - 1) * 0.2) * power;
+      const dmg = (35 + this.wave * 1.5) * (1 + (stage - 1) * 0.25) * power;
       this.zombies.push({ x, y, r: 28, hp, maxHp: hp, speed, dmg, color: '#ff4757', elite: true, boss: true, stage, dashing:false, dashCd: 2, dashTime:0, ghost:false, invuln:0, ranged:true, shotCd:1.5, burnTime:0, burnDps:0 });
       this.bossTimer = this.bossInterval;
     },
@@ -1369,7 +1381,15 @@ export default {
       this.permaBuffs[a.id]++;
       this.augmentChoices = [];
       this.paused = false;
+      this.enrageEnemies();
       if (this.spawnAfterChoice) this.spawnBoss();
+    },
+    enrageEnemies() {
+      const scale = 1.2;
+      this.enemyPower *= scale;
+      for (const z of this.zombies) {
+        z.hp *= scale; z.maxHp *= scale; z.speed *= scale; z.dmg *= scale;
+      }
     },
     spawnDrop(x, y, type) {
       const map = {
