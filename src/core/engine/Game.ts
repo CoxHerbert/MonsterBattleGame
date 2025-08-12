@@ -71,7 +71,7 @@ class Game {
     this.waves.init(level)
 
     for (const t of towersData as TowerDef[]) this.towerDefs[t.id] = t
-    this.projectiles = new ProjectileManager(this.statuses)
+    this.projectiles = new ProjectileManager(this.statuses, this.enemies)
     this.towers = new TowerManager(this.towerDefs, this.projectiles)
 
     this.cols = Math.floor(level.width / level.tileSize)

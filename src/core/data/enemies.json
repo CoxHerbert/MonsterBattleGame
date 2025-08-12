@@ -2,4 +2,5 @@
   {"id":"grunt","name":"Grunt","hp":60,"armor":2,"moveSpeed":1.4,"bounty":5,"size":10},
   {"id":"runner","name":"Runner","hp":40,"armor":0,"moveSpeed":2.2,"bounty":4,"size":9},
   {"id":"tank","name":"Tank","hp":220,"armor":8,"moveSpeed":0.9,"bounty":15,"size":14}
+  ,{"id":"shield","name":"Shield","hp":180,"armor":12,"moveSpeed":1.1,"bounty":10,"size":12,"resist":{"physical":0.4}}
 ]
