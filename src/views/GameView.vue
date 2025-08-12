@@ -5,43 +5,43 @@
     <!-- HUD -->
     <div class="hud">
       <div class="stats">
-        <span>分数: {{ score }}</span>
-        <span>最高: {{ bestScore }}</span>
-        <span>连击: {{ combo }}x</span>
-        <span>生命: {{ Math.max(0, Math.ceil(player.hp)) }}</span>
-        <span>波数: {{ wave }}</span>
-        <span>首领: {{ Math.ceil(bossTimer) }}秒</span>
-        <span v-if="paused">⏸ 已暂停</span>
+        <span>{{ $t('game.score') }}: {{ score }}</span>
+        <span>{{ $t('game.best') }}: {{ bestScore }}</span>
+        <span>{{ $t('game.combo') }}: {{ combo }}x</span>
+        <span>{{ $t('game.hp') }}: {{ Math.max(0, Math.ceil(player.hp)) }}</span>
+        <span>{{ $t('game.wave') }}: {{ wave }}</span>
+        <span>{{ $t('game.boss') }}: {{ Math.ceil(bossTimer) }}{{ $t('game.seconds') }}</span>
+        <span v-if="paused">⏸ {{ $t('game.paused') }}</span>
         <span v-if="gamepad.name" class="pad">🎮 {{ gamepad.name }}</span>
-        <span v-if="autoAim.enabled && isTouchDevice" class="pad">🎯 辅助瞄准</span>
-        <span v-if="!audio.ready" class="pad">🔇 轻点屏幕以启用声音</span>
-        <span v-if="!assets.ready" class="pad">🖼️ 贴图加载中…</span>
+        <span v-if="autoAim.enabled && isTouchDevice" class="pad">🎯 {{ $t('game.aimAssist') }}</span>
+        <span v-if="!audio.ready" class="pad">🔇 {{ $t('game.tapToEnableSound') }}</span>
+        <span v-if="!assets.ready" class="pad">🖼️ {{ $t('game.loadingImages') }}</span>
       </div>
 
       <div class="buffs" v-if="activeBuffs.length">
         <div class="buff" v-for="b in activeBuffs" :key="b.kind">
           <span class="tag">{{ b.kind }}</span>
-          <span class="time">{{ b.left.toFixed(1) }}秒</span>
+          <span class="time">{{ b.left.toFixed(1) }}{{ $t('game.seconds') }}</span>
         </div>
       </div>
 
       <div class="actions">
-        <button @click="togglePause">{{ paused ? '继续' : '暂停' }}</button>
-        <button @click="toggleAutoFire">{{ autoFire ? '自动攻击：开' : '自动攻击：关' }}</button>
-        <button @click="toggleFullscreen">{{ isAnyFullscreen ? '退出全屏' : '全屏' }}</button>
-        <button @click="openSettings">设置</button>
+        <button @click="togglePause">{{ paused ? $t('game.resume') : $t('game.pause') }}</button>
+        <button @click="toggleAutoFire">{{ autoFire ? $t('game.autoFireOn') : $t('game.autoFireOff') }}</button>
+        <button @click="toggleFullscreen">{{ isAnyFullscreen ? $t('game.exitFullscreen') : $t('game.fullscreen') }}</button>
+        <button @click="openSettings">{{ $t('game.settings') }}</button>
       </div>
       <SettingsPanel v-if="settingsOpen" :showRestart="true" :allowSave="true" @save="saveAndExit" @restart="restart" @close="closeSettings" />
 
       <div class="tips">
-        键鼠：WASD + 鼠标 ｜ 手柄：左摇杆移动、右摇杆瞄准、RT/A 射击 ｜ 触屏：左下移动，右下瞄准（轻推触发自动瞄准）。
+        {{ $t('game.tips') }}
       </div>
     </div>
 
     <div v-if="gameOver" class="game-over">
-      <p>游戏结束，分数 {{ score }}</p>
-      <button @click="restart">重新开始</button>
-      <button @click="exitToHome">回到首页</button>
+      <p>{{ $t('game.gameOver', { score }) }}</p>
+      <button @click="restart">{{ $t('game.restart') }}</button>
+      <button @click="exitToHome">{{ $t('game.backHome') }}</button>
     </div>
 
     <!-- 触控层（仅触屏设备渲染） -->
@@ -195,13 +195,14 @@ export default {
   computed: {
     settings() { return this.$store.state.settings; },
     activeBuffs() {
+      const t = this.$t
       const list = [];
-      if (this.buff.speed > 0)  list.push({ kind: '⚡加速', left: this.buff.speed });
-      if (this.buff.spread > 0) list.push({ kind: '🔱散射', left: this.buff.spread });
-      if (this.buff.burn > 0)   list.push({ kind: '🔥燃烧', left: this.buff.burn });
-      if (this.buff.pierce > 0) list.push({ kind: '🎯穿透', left: this.buff.pierce });
-      if (this.buff.bounce > 0) list.push({ kind: '↩️弹射', left: this.buff.bounce });
-      if (this.buff.split > 0)  list.push({ kind: '🔀分裂', left: this.buff.split });
+      if (this.buff.speed > 0)  list.push({ kind: t('game.buff.speed'), left: this.buff.speed });
+      if (this.buff.spread > 0) list.push({ kind: t('game.buff.spread'), left: this.buff.spread });
+      if (this.buff.burn > 0)   list.push({ kind: t('game.buff.burn'), left: this.buff.burn });
+      if (this.buff.pierce > 0) list.push({ kind: t('game.buff.pierce'), left: this.buff.pierce });
+      if (this.buff.bounce > 0) list.push({ kind: t('game.buff.bounce'), left: this.buff.bounce });
+      if (this.buff.split > 0)  list.push({ kind: t('game.buff.split'), left: this.buff.split });
       return list;
     },
     isAnyFullscreen() { return this.isNativeFullscreen || this.isPseudoFullscreen; }
@@ -1079,9 +1080,9 @@ export default {
       if (this.player.hp <= 0 || this.paused) {
         ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, screenW, screenH);
         ctx.fillStyle = '#fff'; ctx.font = 'bold 32px ui-sans-serif, system-ui'; ctx.textAlign = 'center';
-        ctx.fillText(this.paused ? '已暂停' : '你阵亡了', screenW / 2, screenH / 2 - 10);
+        ctx.fillText(this.paused ? this.$t('game.paused') : this.$t('game.youDied'), screenW / 2, screenH / 2 - 10);
         ctx.font = '16px ui-sans-serif, system-ui';
-        ctx.fillText('按 Start/Esc 切换暂停', screenW / 2, screenH / 2 + 20);
+        ctx.fillText(this.$t('game.pressStart'), screenW / 2, screenH / 2 + 20);
       }
     },
     drawTerrain(camX, camY, w, h) {

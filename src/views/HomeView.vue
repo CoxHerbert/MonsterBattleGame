@@ -1,23 +1,23 @@
 <template>
   <div class="home">
-    <h1 class="logo">怪物大战</h1>
+    <h1 class="logo">{{ $t('home.title') }}</h1>
     <div class="buttons">
-      <button @click="start">开始游戏</button>
-      <button v-if="saves.length" @click="openSaves">继续游戏</button>
-      <button @click="openSettings">设置</button>
+      <button @click="start">{{ $t('home.start') }}</button>
+      <button v-if="saves.length" @click="openSaves">{{ $t('home.continue') }}</button>
+      <button @click="openSettings">{{ $t('home.settings') }}</button>
     </div>
     <div class="board" v-if="scores.length">
-      <h2>排行榜</h2>
+      <h2>{{ $t('home.leaderboard') }}</h2>
       <ol>
-        <li v-for="(s,i) in scores" :key="i">第{{ i+1 }}名：{{ s.score }}</li>
+        <li v-for="(s,i) in scores" :key="i">{{ $t('home.rank', { n: i+1, score: s.score }) }}</li>
       </ol>
     </div>
     <div class="saves" v-if="savesOpen">
-      <h2>选择存档</h2>
+      <h2>{{ $t('home.selectSave') }}</h2>
       <ul>
-        <li v-for="s in saves" :key="s.id"><button @click="continueGame(s.id)">波数{{ s.state.wave }} 分数{{ s.state.score }}</button></li>
+        <li v-for="s in saves" :key="s.id"><button @click="continueGame(s.id)">{{ $t('home.saveItem', { wave: s.state.wave, score: s.state.score }) }}</button></li>
       </ul>
-      <button @click="savesOpen=false">关闭</button>
+      <button @click="savesOpen=false">{{ $t('home.close') }}</button>
     </div>
     <SettingsPanel v-if="settingsOpen" @close="settingsOpen=false" />
   </div>

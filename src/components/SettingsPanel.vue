@@ -1,7 +1,7 @@
 <template>
   <div class="settings-panel">
     <div class="audio">
-      <button @click="toggleMute" :title="settings.muted ? '取消静音' : '静音'">
+      <button @click="toggleMute" :title="$t(settings.muted ? 'settings.unmute' : 'settings.mute')">
         {{ settings.muted ? '🔇' : '🔊' }}
       </button>
       <input
@@ -12,25 +12,33 @@
         step="0.01"
         :value="settings.volume"
         @input="onVolumeInput"
-        :title="'音量 ' + Math.round(settings.volume * 100) + '%'"
+        :title="$t('settings.volume') + ' ' + Math.round(settings.volume * 100) + '%'"
       />
-      <button @click="toggleBgm" :title="settings.bgmOn ? '关闭背景音乐' : '开启背景音乐'">
-        {{ settings.bgmOn ? '🎵 背景音乐 开' : '🎵 背景音乐 关' }}
+      <button @click="toggleBgm" :title="$t(settings.bgmOn ? 'settings.bgmOffTitle' : 'settings.bgmOnTitle')">
+        {{ $t(settings.bgmOn ? 'settings.bgmOnLabel' : 'settings.bgmOffLabel') }}
       </button>
     </div>
-    <button @click="toggleMapOpen">{{ settings.minimapOpen ? '雷达：开' : '雷达：关' }}</button>
+    <button @click="toggleMapOpen">{{ $t(settings.minimapOpen ? 'settings.radarOn' : 'settings.radarOff') }}</button>
     <div class="map-size">
-      <label>地图大小：
+      <label>{{ $t('settings.mapSize') }}：
         <select v-model="localSize" @change="changeMapSize">
-          <option value="small">小</option>
-          <option value="medium">中</option>
-          <option value="large">大</option>
+          <option value="small">{{ $t('settings.small') }}</option>
+          <option value="medium">{{ $t('settings.medium') }}</option>
+          <option value="large">{{ $t('settings.large') }}</option>
         </select>
       </label>
     </div>
-    <button v-if="allowSave" @click="$emit('save')">保存并退出</button>
-    <button v-if="showRestart" @click="$emit('restart')">重新开始</button>
-    <button @click="$emit('close')">关闭</button>
+    <div class="lang">
+      <label>{{ $t('settings.language') }}：
+        <select v-model="language">
+          <option value="zh">中文</option>
+          <option value="en">English</option>
+        </select>
+      </label>
+    </div>
+    <button v-if="allowSave" @click="$emit('save')">{{ $t('settings.saveAndExit') }}</button>
+    <button v-if="showRestart" @click="$emit('restart')">{{ $t('settings.restart') }}</button>
+    <button @click="$emit('close')">{{ $t('settings.close') }}</button>
   </div>
 </template>
 
@@ -46,6 +54,10 @@ export default {
     localSize: {
       get() { return this.settings.minimapSize },
       set(v) { this.$store.commit('setMinimapSize', v) }
+    },
+    language: {
+      get() { return this.settings.language },
+      set(v) { this.$store.commit('setLanguage', v) }
     }
   },
   methods: {
