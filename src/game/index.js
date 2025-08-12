@@ -17,6 +17,9 @@ import GameDirector from './director/GameDirector.js';
 import CharacterSystem from './systems/CharacterSystem.js';
 import WeaponSystem from './systems/WeaponSystem.js';
 import SkillSystem from './systems/SkillSystem.js';
+import ModeManager from './systems/ModeManager.js';
+import EconomySystem from './systems/EconomySystem.js';
+import MetaSystem from './systems/MetaSystem.js';
 
 export default class Game {
   constructor({ canvas, store, t }) {
@@ -57,8 +60,12 @@ export default class Game {
     this.weapon = new WeaponSystem({ state: this.state, audio: this.audio });
     this.skills = new SkillSystem({ state: this.state, character: this.character, audio: this.audio });
     this.director = new GameDirector({ state: this.state, spawner: this.spawner, enrage: this.enrage, world: this.world, bus: this.bus, audio: this.audio });
+    this.meta = new MetaSystem();
+    this.economy = new EconomySystem({ meta: this.meta });
+    this.modeMgr = new ModeManager({ state: this.state, director: this.director, economy: this.economy, meta: this.meta, bus: this.bus });
     this.renderer = new Renderer2D({ canvas, ctx: this.ctx, state: this.state, world: this.world, t });
     this.character.initPlayer();
+    this.modeMgr.startEndless();
   }
 
   async init() {
