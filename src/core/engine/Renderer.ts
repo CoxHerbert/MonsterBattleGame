@@ -97,12 +97,13 @@ export class Renderer {
       this.towerPool,
       this.towerLayer,
       () => {
-        const sp = new Sprite(Assets.texture('TOWER'))
+        const sp = new Sprite()
         sp.anchor.set(0.5)
         attachShadow(sp)
         return sp
       },
       (s, t) => {
+        s.texture = Assets.texture(t.id)
         s.position.set(t.x, t.y)
       }
     )
