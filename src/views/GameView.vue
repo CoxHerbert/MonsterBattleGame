@@ -1333,6 +1333,44 @@ export default {
     },
 
     /* ===== Minimap / Radar ===== */
+    /* ===== Minimap: 敌人点位样式（按类型/精英/Boss） ===== */
+    enemyMinimapStyle(z){
+      // 基础颜色表：按 type 区分，可自行增减
+      const typeColor = {
+        zombie:   '#88f88e',
+        crawler:  '#6ee7b7',
+        spitter:  '#34d399',
+        ranger:   '#93c5fd',
+        charger:  '#f59e0b',
+        bomber:   '#ef4444',
+        summoner: '#b39ddb',
+        shield:   '#38bdf8',
+        ghost:    '#cbd5e1',
+        brute:    '#ff8d4f',
+
+        // Boss
+        boss_tyrant:    '#ff4757',
+        boss_matriarch: '#ff4ea3'
+      };
+
+      // 取色：优先类型；未知类型给个中性红
+      let fill = typeColor[z.type] || (z.boss ? '#ff4757' : '#ff6b6b');
+
+      // 精英高亮：外圈描边
+      const stroke = z.elite ? 'rgba(255,255,255,0.85)' : 'transparent';
+      const strokeWidth = z.elite ? 1.5 : 0;
+
+      // 点大小：boss>精英>普通（随半径微调）
+      let r = z.boss ? 5.5 : (z.elite ? 3.5 : 2.5);
+      // 轻微按实际碰撞半径缩放（保证可读，夹在 2~6）
+      r = Math.max(2, Math.min(6, r * (z.r / 12)));
+
+      // Ghost 半透明
+      const alpha = z.type === 'ghost' ? 0.75 : 1.0;
+
+      return { fill, stroke, strokeWidth, r, alpha };
+    },
+
     getMinimapRect() {
       const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
       const mm = this.minimap;
@@ -1394,24 +1432,43 @@ export default {
         }
       }
 
-      // 怪物点
-      const rMax = Math.min(w, h) / 2 - 8; // 雷达边缘
+      // 怪物点（按类型/精英/Boss 着色）
+      const rMax = Math.min(w, h) / 2 - 8;
       for (const z of this.zombies) {
         const dx = (z.x - this.player.x) * scale;
         const dy = (z.y - this.player.y) * scale;
         let px = cx + dx, py = cy + dy;
-        // 边缘夹紧：超出雷达范围的怪，贴到边框
+
+        // 边缘夹紧：超出雷达范围的怪贴边显示
         const dist = Math.hypot(dx, dy);
         if (dist > rMax) { const k = rMax / dist; px = cx + dx * k; py = cy + dy * k; }
-        if (z.boss) {
-          ctx.fillStyle = '#ff4757';
-          ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#fff'; ctx.font = '8px ui-sans-serif,system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText('B', px, py + 0.5);
-        } else {
+
+        const sty = this.enemyMinimapStyle(z);
+
+        // 外描边（精英）
+        if (sty.strokeWidth > 0){
           ctx.beginPath();
-          ctx.fillStyle = z.elite ? '#ff8d4f' : '#88f88e';
-          ctx.arc(px, py, z.elite ? 3.5 : 2.5, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = sty.stroke;
+          ctx.lineWidth = sty.strokeWidth;
+          ctx.arc(px, py, sty.r + 1, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // 填充圆点
+        ctx.beginPath();
+        ctx.globalAlpha = sty.alpha;
+        ctx.fillStyle = sty.fill;
+        ctx.arc(px, py, sty.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        // Boss 文字标识（保持你原有的 “B”）
+        if (z.boss){
+          ctx.fillStyle = '#fff';
+          ctx.font = '8px ui-sans-serif,system-ui';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('B', px, py + 0.5);
         }
       }
 
