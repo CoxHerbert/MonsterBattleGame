@@ -17,7 +17,12 @@ export class Tower {
   uid: string
   cooldown = 0
   level = 1
-  constructor(public x: number, public y: number, public stats: TowerStats) {
+  constructor(
+    public id: string,
+    public x: number,
+    public y: number,
+    public stats: TowerStats
+  ) {
     this.uid = Math.random().toString(36).slice(2)
     if (!this.stats.targetPriority) this.stats.targetPriority = 'first'
   }

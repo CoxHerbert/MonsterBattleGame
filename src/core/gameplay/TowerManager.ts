@@ -6,10 +6,10 @@ export class TowerManager {
 
   constructor(private defs: Record<string, TowerDef>) {}
 
-  placeTower(towerId: string, gridX: number, gridY: number): boolean {
+  placeTower(towerId: string, x: number, y: number): Tower | null {
     const def = this.defs[towerId]
-    if (!def) return false
-    const tower = new Tower(gridX, gridY, {
+    if (!def) return null
+    const tower = new Tower(towerId, x, y, {
       range: def.range,
       fireRate: def.fireRate,
       damage: def.damage,
@@ -21,7 +21,7 @@ export class TowerManager {
       targetPriority: def.targetPriority
     })
     this.towers.push(tower)
-    return true
+    return tower
   }
 
   upgradeTower(towerUid: string): boolean {

@@ -71,3 +71,15 @@ export interface LevelConfig {
   startGold: number;
   waves: WaveDef[];
 }
+
+export interface SaveData {
+  version: number;
+  selectedLevelId: string;
+  progress: {
+    completedWaves: number;
+    life: number;
+    gold: number;
+    towers: Array<{ id: string; gx: number; gy: number; level: number }>;
+  };
+  settings: { bgm: boolean; sfx: boolean; speed: number };
+}

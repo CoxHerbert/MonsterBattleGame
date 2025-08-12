@@ -61,4 +61,9 @@ export class WaveManager {
   get currentWave(): number {
     return this.index
   }
+
+  setCurrentWave(i: number): void {
+    this.index = i
+    this.running = false
+  }
 }

@@ -1,7 +1,7 @@
 import level1 from '../data/levels/level01.json'
 import enemiesData from '../data/enemies.json'
 import towersData from '../data/towers.json'
-import type { LevelConfig, EnemyDef, TowerDef } from '../data/types'
+import type { LevelConfig, EnemyDef, TowerDef, SaveData } from '../data/types'
 import { Renderer } from './Renderer'
 import { Input } from './Input'
 import { EnemyManager } from '../gameplay/EnemyManager'
@@ -9,6 +9,7 @@ import { WaveManager } from '../gameplay/WaveManager'
 import { Economy } from '../gameplay/Economy'
 import { TowerManager } from '../gameplay/TowerManager'
 import { bindEnemyManager } from '../gameplay/Targeting'
+import { loadGame, saveGame } from '../gameplay/SaveSystem'
 
 export interface GameCallbacks {
   gold?: (v: number) => void
@@ -112,6 +113,24 @@ class Game {
           break
       }
     })
+    const saved = loadGame()
+    if (saved && saved.selectedLevelId === level.id) {
+      this.life = saved.progress.life
+      callbacks.life && callbacks.life(this.life)
+      this.economy.gold = saved.progress.gold
+      callbacks.gold && callbacks.gold(this.economy.gold)
+      this.waves.setCurrentWave(saved.progress.completedWaves)
+      this.speed = saved.settings.speed
+      for (const t of saved.progress.towers) {
+        const cx = t.gx * level.tileSize + level.tileSize / 2
+        const cy = t.gy * level.tileSize + level.tileSize / 2
+        const tower = this.towers.placeTower(t.id, cx, cy)
+        if (tower) tower.level = t.level
+      }
+      this.renderer.drawTowers(this.towers.towers)
+      this.currentWave = this.waves.currentWave + 1
+      callbacks.wave && callbacks.wave(this.currentWave)
+    }
 
     this.loop()
   }
@@ -128,11 +147,12 @@ class Game {
         this.towers.update(dt)
         this.renderer.drawEnemies(this.enemies.enemies)
         this.renderer.drawTowers(this.towers.towers)
-        if (!this.waves.isWaveRunning()) this.running = false
-        this.currentWave = this.waves.currentWave + 1
-        this.callbacks.wave && this.callbacks.wave(this.currentWave)
-        this.callbacks.enemies && this.callbacks.enemies(this.enemies.enemies)
+      if (!this.waves.isWaveRunning()) this.running = false
+      this.currentWave = this.waves.currentWave + 1
+      this.callbacks.wave && this.callbacks.wave(this.currentWave)
+      this.callbacks.enemies && this.callbacks.enemies(this.enemies.enemies)
       }
+      this.save()
       this.raf = requestAnimationFrame(frame)
     }
     this.raf = requestAnimationFrame(frame)
@@ -163,6 +183,26 @@ class Game {
   destroy() {
     cancelAnimationFrame(this.raf)
     this.input.dispose()
+  }
+
+  private save() {
+    const data: SaveData = {
+      version: 1,
+      selectedLevelId: this.level.id,
+      progress: {
+        completedWaves: this.waves.currentWave,
+        life: this.life,
+        gold: this.economy.gold,
+        towers: this.towers.towers.map(t => ({
+          id: t.id,
+          gx: Math.floor(t.x / this.level.tileSize),
+          gy: Math.floor(t.y / this.level.tileSize),
+          level: t.level
+        }))
+      },
+      settings: { bgm: true, sfx: true, speed: this.speed }
+    }
+    saveGame(data)
   }
 }
 
