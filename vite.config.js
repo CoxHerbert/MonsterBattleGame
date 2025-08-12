@@ -12,7 +12,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': '/src'
+      '@': '/src',
+      'vuex': '/src/simple-vuex.js'
     }
   }
 })
