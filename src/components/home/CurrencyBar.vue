@@ -5,7 +5,13 @@
   </div>
 </template>
 <script>
-export default { name:'CurrencyBar', props:{ gold:Number, core:Number } }
+export default {
+  name:'CurrencyBar',
+  props:{
+    gold:{ type:Number, default:0 },
+    core:{ type:Number, default:0 }
+  }
+}
 </script>
 <style scoped>
 .bar{ display:flex; gap:12px; align-items:center; }
