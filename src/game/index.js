@@ -4,6 +4,7 @@ import InputManager from './input/InputManager.js';
 import AudioEngine from './audio/AudioEngine.js';
 import { loadSprites } from './assets/Sprites.js';
 import ChunkMap from './world/ChunkMap.js';
+import ItemSpawner from './world/ItemSpawner.js';
 import { Collision } from './world/Collision.js';
 import Spawner from './entities/Spawner.js';
 import CombatSystem from './systems/CombatSystem.js';
@@ -43,14 +44,15 @@ export default class Game {
     this.loop = new Loop(this.update.bind(this), this.draw.bind(this));
     this.input = new InputManager({ canvas, bus: this.bus });
     this.audio = new AudioEngine({ store });
-    this.world = new ChunkMap({ bus: this.bus });
+    this.world = new ChunkMap({ state: this.state });
+    this.itemSpawner = new ItemSpawner({ state: this.state, chunkMap: this.world, bus: this.bus, audio: this.audio });
     this.collision = new Collision();
-    this.spawner = new Spawner({ state: this.state, world: this.world, collision: this.collision, enrage: this.enrage, bus: this.bus, combat: this.combat, audio: this.audio });
+    this.enrage = new EnrageSystem({ state: this.state });
     this.combat = new CombatSystem({ state: this.state, collision: this.collision, bus: this.bus, audio: this.audio });
+    this.spawner = new Spawner({ state: this.state, world: this.world, collision: this.collision, enrage: this.enrage, bus: this.bus, combat: this.combat, audio: this.audio });
     this.drop = new DropSystem({ state: this.state, audio: this.audio });
     this.augment = new AugmentSystem({ state: this.state });
     this.score = new ScoreSystem({ state: this.state });
-    this.enrage = new EnrageSystem({ state: this.state });
     this.character = new CharacterSystem({ state: this.state, bus: this.bus });
     this.weapon = new WeaponSystem({ state: this.state, audio: this.audio });
     this.skills = new SkillSystem({ state: this.state, character: this.character, audio: this.audio });
@@ -84,7 +86,14 @@ export default class Game {
     if (this.input.keyPressed('Shift')) this.skills.cast('dodge', this._skillCtx());
     if (this.input.keyPressed('E'))     this.skills.cast('shield', this._skillCtx());
     if (this.input.keyPressed('Q'))     this.skills.cast('nuke', this._skillCtx());
-    this.world.refreshVisibleObstacles(this.state);
+
+    const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
+    this.state.screenW = w; this.state.screenH = h;
+    const camX = this.state.player.x - w/2, camY = this.state.player.y - h/2;
+    this.world.refreshVisibleObstacles(camX, camY, w, h);
+    this.itemSpawner.update(dt, this.state.timeNow);
+    this.itemSpawner.tryPickupAt(this.state.player.x, this.state.player.y, this.state.player.r);
+
     this.combat.update(dt);
     this.spawner.update(dt);
     this.combat.stepProjectiles(dt);
