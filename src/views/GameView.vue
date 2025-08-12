@@ -89,6 +89,7 @@ import SettingsPanel from '../components/SettingsPanel.vue'
 import modes from '@/game/config/modes.config.js'
 import SaveSystem from '@/game/systems/SaveSystem.js'
 import WeaponSystem from '@/game/weapons/WeaponSystem.js'
+import { ENEMY_ALERTS, ENEMY_ALERTS_OVERRIDE } from '@/game/config/enemies.config.js'
 const LS_KEY = 'zombie-best-score-v1';
 
 /* ===== 内置SVG精灵（可替换为你的 PNG/SVG 地址） ===== */
@@ -231,7 +232,7 @@ export default {
       // assets
       assets: { ready:false, player:null, zombie:null, elite:null, boss:null },
 
-      miniFxEnabled: true,
+      miniFxEnabled: this.$store.state.settings.minimapAlerts,
 
       // 小地图 / 雷达
       minimap: {
@@ -285,6 +286,7 @@ export default {
       if (v) this.startBgm(); else this.stopBgm();
     },
     'settings.minimapOpen'(v) { this.minimap.open = v; },
+    'settings.minimapAlerts'(v) { this.miniFxEnabled = v; },
     'settings.minimapSize'(v) { this.minimap.size = v; this.updateMinimapSize(); }
   },
   mounted() {
@@ -302,6 +304,7 @@ export default {
 
     this.minimap.open = this.settings.minimapOpen;
     this.minimap.size = this.settings.minimapSize;
+    this.miniFxEnabled = this.settings.minimapAlerts;
     this.updateMinimapSize();
 
     this.bestScore = Number(localStorage.getItem(LS_KEY) || 0);
@@ -1374,64 +1377,79 @@ export default {
       return { fill, stroke, strokeWidth, r, alpha };
     },
 
-    /* ===== 时间脉冲：返回 0~1，用于闪烁/缩放 ===== */
-    timePulse(speed = 6, phase = 0){
-      return 0.5 + 0.5 * Math.sin((performance.now() / 1000) * speed + phase);
-    },
-
-    /* ===== Minimap：根据敌人“状态/前摇”给出警戒样式 =====
-       返回 null 或 { color, width, scale, alpha }：
-       - color: 外圈描边色
-       - width: 线宽（像素）
-       - scale: 在基础半径上的放大倍数（用于脉冲）
-       - alpha: 透明度（0~1）
-    */
+    /* =====(CFG) Minimap：基于配置表的敌人前摇/警戒可视化 ===== */
     enemyMinimapAlert(z){
-      // 默认无警戒
-      let alert = null;
+      // 全局开关（可改成 this.$store.state.settings.minimapAlerts）
+      if (this.miniFxEnabled === false) return null;
 
-      // —— 冲锋者（或带 dash 的精英）：冲锋时高亮 —— //
+      const getCfg = (key) => {
+        // 基础模板
+        const base = ENEMY_ALERTS[key];
+        if (!base) return null;
+        // 类型覆盖
+        const ovType = ENEMY_ALERTS_OVERRIDE?.[z.type]?.[key] || {};
+        return { ...base, ...ovType };
+      };
+
+      const pulse = (speed)=> (0.5 + 0.5 * Math.sin((performance.now()/1000) * speed));
+
+      // 1) 冲锋（dash 活动时高亮；或需要也可根据 dashCd < pre）
       if (z.dashing){
-        const p = this.timePulse(8);
-        alert = { color:'#f59e0b', width:2, scale:1 + 0.25*p, alpha:0.6 + 0.4*p };
-      }
-
-      // —— 射手/喷吐者：射击前 0.3s 闪烁 —— //
-      if (!alert && z.shotCd !== undefined && z.shotCd < 0.3){
-        const p = this.timePulse(10);
-        const col = (z.ai === 'spit') ? '#34d399' : '#93c5fd';
-        alert = { color:col, width:1.5, scale:1 + 0.18*p, alpha:0.45 + 0.4*p };
-      }
-
-      // —— 召唤者：召唤前 0.6s 闪烁 —— //
-      if (!alert && z.summonCd !== undefined && z.summonCd < 0.6){
-        const p = this.timePulse(9);
-        alert = { color:'#b39ddb', width:2, scale:1 + 0.22*p, alpha:0.5 + 0.45*p };
-      }
-
-      // —— 自爆体：玩家进入爆炸半径时持续红色警戒 —— //
-      if (!alert && z.cfg && z.cfg.boom){
-        const R = z.cfg.boom.radius || 96;
-        const d = Math.hypot(this.player.x - z.x, this.player.y - z.y);
-        if (d <= R){
-          const p = this.timePulse(12);
-          alert = { color:'#ef4444', width:2, scale:1 + 0.28*p, alpha:0.55 + 0.4*p };
+        const cfg = getCfg('charge'); if (cfg){
+          const p = pulse(cfg.speed);
+          const [a0,a1] = cfg.alpha;
+          return { color:cfg.color, width:cfg.line, scale:1 + cfg.scale*p, alpha:a0 + (a1-a0)*p };
         }
       }
 
-      // —— Boss 前摇：暴君(锥形) / 母巢(弹幕) —— //
-      if (!alert && z.boss){
-        // 这些私有冷却变量在 EnemyBrain 里有使用；不存在就忽略
-        if (z._coneCd !== undefined && z._coneCd < 0.35){
-          const p = this.timePulse(11);
-          alert = { color:'#ff4757', width:2.5, scale:1 + 0.3*p, alpha:0.6 + 0.35*p };
-        } else if (z._novaCd !== undefined && z._novaCd < 0.4){
-          const p = this.timePulse(11);
-          alert = { color:'#ff4ea3', width:2.5, scale:1 + 0.3*p, alpha:0.6 + 0.35*p };
+      // 2) 远程射击/喷吐：shotCd < pre
+      if (z.shotCd !== undefined){
+        // 按 AI 类型区分样式
+        const key = (z.ai === 'spit') ? 'spit' : 'shoot';
+        const cfg = getCfg(key);
+        if (cfg && z.shotCd < cfg.pre){
+          const p = pulse(cfg.speed); const [a0,a1] = cfg.alpha;
+          return { color:cfg.color, width:cfg.line, scale:1 + cfg.scale*p, alpha:a0 + (a1-a0)*p };
         }
       }
 
-      return alert;
+      // 3) 召唤：summonCd < pre
+      if (z.summonCd !== undefined){
+        const cfg = getCfg('summon');
+        if (cfg && z.summonCd < cfg.pre){
+          const p = pulse(cfg.speed); const [a0,a1] = cfg.alpha;
+          return { color:cfg.color, width:cfg.line, scale:1 + cfg.scale*p, alpha:a0 + (a1-a0)*p };
+        }
+      }
+
+      // 4) 自爆体：玩家进入爆炸半径 * radiusFactor
+      if (z.cfg && z.cfg.boom){
+        const cfg = getCfg('suicide');
+        if (cfg){
+          const R = (z.cfg.boom.radius || 96) * (cfg.radiusFactor || 1);
+          const d = Math.hypot(this.player.x - z.x, this.player.y - z.y);
+          if (d <= R){
+            const p = pulse(cfg.speed); const [a0,a1] = cfg.alpha;
+            return { color:cfg.color, width:cfg.line, scale:1 + cfg.scale*p, alpha:a0 + (a1-a0)*p };
+          }
+        }
+      }
+
+      // 5) Boss 技能前摇：_coneCd / _novaCd
+      if (z.boss){
+        const coneCfg = getCfg('boss_cone');
+        if (coneCfg && z._coneCd !== undefined && z._coneCd < coneCfg.pre){
+          const p = pulse(coneCfg.speed); const [a0,a1] = coneCfg.alpha;
+          return { color:coneCfg.color, width:coneCfg.line, scale:1 + coneCfg.scale*p, alpha:a0 + (a1-a0)*p };
+        }
+        const novaCfg = getCfg('boss_nova');
+        if (novaCfg && z._novaCd !== undefined && z._novaCd < novaCfg.pre){
+          const p = pulse(novaCfg.speed); const [a0,a1] = novaCfg.alpha;
+          return { color:novaCfg.color, width:novaCfg.line, scale:1 + novaCfg.scale*p, alpha:a0 + (a1-a0)*p };
+        }
+      }
+
+      return null;
     },
 
     getMinimapRect() {
@@ -1527,7 +1545,7 @@ export default {
         ctx.globalAlpha = 1;
 
         // —— 战斗状态：警戒 Ring（闪烁/放大） —— //
-        const alert = this.miniFxEnabled ? this.enemyMinimapAlert(z) : null;
+        const alert = this.enemyMinimapAlert(z);
         if (alert){
           ctx.beginPath();
           ctx.globalAlpha = alert.alpha;

@@ -15,7 +15,7 @@ export default createStore({
       muted,
       bgmOn: bgmSaved === null ? true : bgmSaved === '1',
       minimapOpen: true,
-
+      minimapAlerts: true,
       minimapSize: 'medium'
     }
   }),
@@ -33,7 +33,7 @@ export default createStore({
       localStorage.setItem(BGM_KEY, v ? '1' : '0')
     },
     setMinimapOpen(state, v) { state.settings.minimapOpen = v },
-
+    setMinimapAlerts(state, v) { state.settings.minimapAlerts = v },
     setMinimapSize(state, v) { state.settings.minimapSize = v }
   }
 })
