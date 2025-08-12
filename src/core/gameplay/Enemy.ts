@@ -1,13 +1,4 @@
-export type StatusEffectType = 'slow' | 'poison' | 'stun'
-
-export interface StatusEffect {
-  type: StatusEffectType
-  value: number
-  duration: number
-}
-
-import type { Resistances } from './DamageSystem'
-import type { PathPoint } from '../data/types'
+import type { EnemyDef, StatusEffect } from '../data/types'
 
 export class Enemy {
   x: number
@@ -15,50 +6,40 @@ export class Enemy {
   hp: number
   maxHp: number
   armor: number
-  moveSpeed: number
+  moveSpeed: number // pixels per second
   bounty: number
-  element: string
   size: number
-  resistances: Resistances
+  resistances?: Partial<Record<string, number>>
   statusEffects: StatusEffect[] = []
-  seg = 0
+  private path: { x: number; y: number }[]
+  private seg = 0
+  done = false
 
-  constructor(
-    private path: PathPoint[],
-    private tileSize: number,
-    opts: {
-      hp: number
-      armor: number
-      moveSpeed: number
-      bounty: number
-      element?: string
-      size?: number
-      resistances?: Resistances
-    }
-  ) {
-    this.x = path[0].x * tileSize + tileSize / 2
-    this.y = path[0].y * tileSize + tileSize / 2
-    this.hp = this.maxHp = opts.hp
-    this.armor = opts.armor
-    this.moveSpeed = opts.moveSpeed
-    this.bounty = opts.bounty
-    this.element = opts.element ?? 'physical'
-    this.size = opts.size ?? 1
-    this.resistances = opts.resistances ?? {}
+  constructor(path: { x: number; y: number }[], def: EnemyDef, tileSize: number) {
+    this.path = path
+    this.x = path[0].x
+    this.y = path[0].y
+    this.hp = this.maxHp = def.hp
+    this.armor = def.armor
+    this.moveSpeed = def.moveSpeed * tileSize
+    this.bounty = def.bounty
+    this.size = def.size
+    this.resistances = def.resist
   }
 
   update(dt: number) {
     const next = this.path[this.seg + 1]
-    if (!next) return
-    const tx = next.x * this.tileSize + this.tileSize / 2
-    const ty = next.y * this.tileSize + this.tileSize / 2
-    const dx = tx - this.x
-    const dy = ty - this.y
+    if (!next) {
+      this.done = true
+      return
+    }
+    const dx = next.x - this.x
+    const dy = next.y - this.y
     const dist = Math.hypot(dx, dy)
     const step = this.moveSpeed * dt
     if (dist <= step) {
-      this.x = tx
-      this.y = ty
+      this.x = next.x
+      this.y = next.y
       this.seg++
     } else {
       this.x += (dx / dist) * step

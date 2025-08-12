@@ -1,13 +1,19 @@
 export class Economy {
   gold = 0
-  add(amount: number) {
-    this.gold += amount
+
+  canAfford(amount: number): boolean {
+    return this.gold >= amount
   }
-  spend(amount: number) {
-    if (this.gold >= amount) {
+
+  spend(amount: number): boolean {
+    if (this.canAfford(amount)) {
       this.gold -= amount
       return true
     }
     return false
+  }
+
+  gain(amount: number): void {
+    this.gold += amount
   }
 }

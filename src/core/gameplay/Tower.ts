@@ -1,5 +1,5 @@
 import type { DamageType } from './DamageSystem'
-import type { StatusEffect } from './Enemy'
+import type { StatusEffect } from '../data/types'
 
 export interface TowerStats {
   range: number
@@ -14,7 +14,10 @@ export interface TowerStats {
 }
 
 export class Tower {
+  uid: string
   cooldown = 0
   level = 1
-  constructor(public x: number, public y: number, public stats: TowerStats) {}
+  constructor(public x: number, public y: number, public stats: TowerStats) {
+    this.uid = Math.random().toString(36).slice(2)
+  }
 }
