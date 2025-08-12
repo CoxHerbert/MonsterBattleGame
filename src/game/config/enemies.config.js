@@ -53,3 +53,27 @@ export const ENEMY_ALERTS_OVERRIDE = {
   // 例：将 spitter 的颜色改更亮
   // spitter: { spit: { color:'#5af5b7' } }
 };
+
+/* ===== Telegraph 世界层参数（单位：像素/度；仅用于地面提示） ===== */
+export const ENEMY_TELEGRAPH_WORLD = {
+  // 默认值（缺省回落）
+  defaults: {
+    ringRadiusScale: 1.4,      // 脚下圈相对 z.r 的倍率
+    chargeRadiusScale: 1.8,    // 冲锋提醒圈
+    shootRadius: 70,
+    spitRadius: 90,
+    summonRadius: 110,
+    suicideRadiusExtra: 0,     // 在 z.cfg.boom.radius 基础上增加
+    coneAngleDeg: 70,
+    coneRange: 420,
+    novaRadius: 220
+  },
+  // 可按具体类型覆盖
+  charger: { chargeRadiusScale: 2.0 },
+  spitter: { spitRadius: 110 },
+  ranger:  { shootRadius: 90 },
+  summoner:{ summonRadius: 140 },
+  // Boss
+  boss_tyrant:    { coneAngleDeg: 80,  coneRange: 520 },
+  boss_matriarch: { novaRadius: 260 }
+};

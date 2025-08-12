@@ -89,7 +89,7 @@ import SettingsPanel from '../components/SettingsPanel.vue'
 import modes from '@/game/config/modes.config.js'
 import SaveSystem from '@/game/systems/SaveSystem.js'
 import WeaponSystem from '@/game/weapons/WeaponSystem.js'
-import { ENEMY_ALERTS, ENEMY_ALERTS_OVERRIDE } from '@/game/config/enemies.config.js'
+import { ENEMY_ALERTS, ENEMY_ALERTS_OVERRIDE, ENEMY_TELEGRAPH_WORLD } from '@/game/config/enemies.config.js'
 const LS_KEY = 'zombie-best-score-v1';
 
 /* ===== 内置SVG精灵（可替换为你的 PNG/SVG 地址） ===== */
@@ -1180,6 +1180,10 @@ export default {
       ctx.clearRect(0, 0, screenW, screenH);
       ctx.save(); ctx.translate(-camX, -camY);
       this.drawTerrain(camX, camY, screenW, screenH);
+      /* ★ 在敌人与玩家之前绘制地面预警（Telegraph 在地面层） */
+      for (const z of this.zombies) {
+        this.drawGroundTelegraphFor(z, ctx, 0, 0);
+      }
 
       // 掉落
       for (const d of this.drops) {
@@ -1375,6 +1379,130 @@ export default {
       const alpha = z.type === 'ghost' ? 0.75 : 1.0;
 
       return { fill, stroke, strokeWidth, r, alpha };
+    },
+
+    /* ===== Telegraph: 工具 ===== */
+    teleCfg(type){
+      const d = ENEMY_TELEGRAPH_WORLD?.defaults || {};
+      const o = ENEMY_TELEGRAPH_WORLD?.[type] || {};
+      return { ...d, ...o };
+    },
+    alertCfg(key, type){
+      const base = ENEMY_ALERTS?.[key];
+      const ov   = ENEMY_ALERTS_OVERRIDE?.[type]?.[key] || {};
+      return base ? { ...base, ...ov } : null;
+    },
+    pulse01(speed){ return 0.5 + 0.5 * Math.sin((performance.now()/1000) * (speed || 8)); },
+    /* 画扇形（世界坐标） */
+    drawSector(ctx, cx, cy, radius, angCenter, angHalf, fill, alpha=0.35){
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius, angCenter - angHalf, angCenter + angHalf, false);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    },
+    /* 画空心圆（世界坐标） */
+    drawRing(ctx, cx, cy, radius, color, width=2, alpha=0.8){
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    },
+    /* ===== Telegraph 主函数（为每只敌人绘制） ===== */
+    drawGroundTelegraphFor(z, ctx, camX, camY){
+      // 性能/总开关
+      if (this.$store && this.$store.state?.settings?.telegraphOn === false) return;
+
+      // 基础坐标
+      const x = z.x - camX, y = z.y - camY;
+      const type = z.type || (z.boss ? (z.bossId || 'boss') : 'zombie');
+      const C = this.teleCfg(type);
+
+      // 1) 脚下基础圈：区分精英/普通（弱提示）
+      const baseRadius = (z.r || 12) * (C.ringRadiusScale || 1.4);
+      const baseAlpha  = z.elite ? 0.22 : 0.12;
+      const baseColor  = z.elite ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.7)';
+      this.drawRing(ctx, x, y, baseRadius, baseColor, 1, baseAlpha);
+
+      // 2) 冲锋（dash 激活时）：橙色脉冲圈
+      if (z.dashing){
+        const cfg = this.alertCfg('charge', type);
+        if (cfg){
+          const p = this.pulse01(cfg.speed);
+          const r = (z.r||12) * (C.chargeRadiusScale || 1.8) * (1 + cfg.scale * p);
+          this.drawRing(ctx, x, y, r, cfg.color, cfg.line, (cfg.alpha?.[0]||0.6) + ((cfg.alpha?.[1]||1.0)-(cfg.alpha?.[0]||0.6))*p);
+        }
+      }
+
+      // 3) 远程射击/喷吐前摇：shotCd < pre
+      if (z.shotCd !== undefined){
+        const isSpit = (z.ai === 'spit');
+        const key = isSpit ? 'spit' : 'shoot';
+        const cfg = this.alertCfg(key, type);
+        if (cfg && z.shotCd < cfg.pre){
+          const p = this.pulse01(cfg.speed);
+          const R = (isSpit ? (C.spitRadius||90) : (C.shootRadius||70)) * (1 + cfg.scale * p);
+          this.drawRing(ctx, x, y, R, cfg.color, cfg.line, (cfg.alpha?.[0]||0.45) + ((cfg.alpha?.[1]||0.85)-(cfg.alpha?.[0]||0.45))*p);
+        }
+      }
+
+      // 4) 召唤前摇：summonCd < pre
+      if (z.summonCd !== undefined){
+        const cfg = this.alertCfg('summon', type);
+        if (cfg && z.summonCd < cfg.pre){
+          const p = this.pulse01(cfg.speed);
+          const R = (C.summonRadius||110) * (1 + cfg.scale * p);
+          this.drawRing(ctx, x, y, R, cfg.color, cfg.line, (cfg.alpha?.[0]||0.5) + ((cfg.alpha?.[1]||0.95)-(cfg.alpha?.[0]||0.5))*p);
+        }
+      }
+
+      // 5) 自爆警戒：玩家进入爆炸半径 * factor 时常亮脉冲
+      if (z.cfg && z.cfg.boom){
+        const cfg = this.alertCfg('suicide', type);
+        if (cfg){
+          const R0 = (z.cfg.boom.radius || 96) + (C.suicideRadiusExtra||0);
+          const factor = cfg.radiusFactor || 1.0;
+          const d = Math.hypot(this.player.x - z.x, this.player.y - z.y);
+          if (d <= R0 * factor){
+            const p = this.pulse01(cfg.speed);
+            const R = R0 * (1 + cfg.scale * p);
+            this.drawRing(ctx, x, y, R, cfg.color, cfg.line, (cfg.alpha?.[0]||0.55) + ((cfg.alpha?.[1]||0.95)-(cfg.alpha?.[0]||0.55))*p);
+          } else {
+            // 离得远：画细红圈（不脉冲）
+            this.drawRing(ctx, x, y, R0, cfg.color, 1.5, 0.25);
+          }
+        }
+      }
+
+      // 6) Boss：锥形前摇（_coneCd < pre）& 环形爆发（_novaCd < pre）
+      if (z.boss){
+        // 锥形（朝向玩家的方向）
+        const coneCfg = this.alertCfg('boss_cone', type);
+        if (coneCfg && z._coneCd !== undefined && z._coneCd < coneCfg.pre){
+          const p = this.pulse01(coneCfg.speed);
+          const ang = Math.atan2(this.player.y - z.y, this.player.x - z.x);
+          const half = ((C.coneAngleDeg || 70) * Math.PI / 180) / 2;
+          const R = (C.coneRange || 420) * (1 + coneCfg.scale * p);
+          this.drawSector(ctx, x, y, R, ang, half, coneCfg.color, (coneCfg.alpha?.[0]||0.35) + ((coneCfg.alpha?.[1]||0.95)-(coneCfg.alpha?.[0]||0.35))*p);
+          this.drawRing(ctx, x, y, R, coneCfg.color, 2, 0.5); // 外缘细描边
+        }
+
+        // 环形爆发
+        const novaCfg = this.alertCfg('boss_nova', type);
+        if (novaCfg && z._novaCd !== undefined && z._novaCd < novaCfg.pre){
+          const p = this.pulse01(novaCfg.speed);
+          const R = (C.novaRadius || 220) * (1 + novaCfg.scale * p);
+          this.drawRing(ctx, x, y, R, novaCfg.color, novaCfg.line, (novaCfg.alpha?.[0]||0.6) + ((novaCfg.alpha?.[1]||0.95)-(novaCfg.alpha?.[0]||0.6))*p);
+        }
+      }
     },
 
     /* =====(CFG) Minimap：基于配置表的敌人前摇/警戒可视化 ===== */

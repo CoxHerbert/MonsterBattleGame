@@ -16,7 +16,8 @@ export default createStore({
       bgmOn: bgmSaved === null ? true : bgmSaved === '1',
       minimapOpen: true,
       minimapAlerts: true,
-      minimapSize: 'medium'
+      minimapSize: 'medium',
+      telegraphOn: true
     }
   }),
   mutations: {
@@ -34,6 +35,7 @@ export default createStore({
     },
     setMinimapOpen(state, v) { state.settings.minimapOpen = v },
     setMinimapAlerts(state, v) { state.settings.minimapAlerts = v },
-    setMinimapSize(state, v) { state.settings.minimapSize = v }
+    setMinimapSize(state, v) { state.settings.minimapSize = v },
+    setTelegraphOn(state, v) { state.settings.telegraphOn = v }
   }
 })
