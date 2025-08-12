@@ -45,7 +45,7 @@ export default class Game {
     this.audio = new AudioEngine({ store });
     this.world = new ChunkMap({ bus: this.bus });
     this.collision = new Collision();
-    this.spawner = new Spawner({ state: this.state, world: this.world });
+    this.spawner = new Spawner({ state: this.state, world: this.world, collision: this.collision, enrage: this.enrage, bus: this.bus, combat: this.combat, audio: this.audio });
     this.combat = new CombatSystem({ state: this.state, collision: this.collision, bus: this.bus, audio: this.audio });
     this.drop = new DropSystem({ state: this.state, audio: this.audio });
     this.augment = new AugmentSystem({ state: this.state });
@@ -86,6 +86,7 @@ export default class Game {
     if (this.input.keyPressed('Q'))     this.skills.cast('nuke', this._skillCtx());
     this.world.refreshVisibleObstacles(this.state);
     this.combat.update(dt);
+    this.spawner.update(dt);
     this.combat.stepProjectiles(dt);
     this.combat.stepEnemies(dt);
     this.drop.update(dt);
