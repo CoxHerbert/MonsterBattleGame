@@ -2,7 +2,7 @@
   <div class="home">
     <header class="topbar">
       <h1>{{ $t('home.title') }}</h1>
-      <CurrencyBar :gold="meta.soft" :core="meta.hard" />
+      <CurrencyBar :gold="meta.soft" :core="meta.hard" @switchLang="switchLang" />
     </header>
 
     <section class="modes">
@@ -28,13 +28,26 @@
       </div>
 
       <div v-else-if="tab==='shop'">
-        <ShopPanel :prices="prices" :unlocks="meta.unlocks" :gold="meta.soft"
-                   @unlock="onUnlock" />
+        <ShopPanel
+          :gold="meta.soft"
+          :inventory="meta.inventory"
+          :prices="prices"
+          @buy="onShopBuy" />
+      </div>
+      <div v-else-if="tab==='armory'">
+        <ArmoryPanel
+          :inventory="meta.inventory"
+          :weaponPrices="prices"
+          :gold="meta.soft"
+          :equipped="loadout.weaponId"
+          @upgrade="onArmoryUpgrade"
+          @equip="onArmoryEquip"
+          @unequip="onArmoryUnequip" />
       </div>
     </section>
 
     <footer class="bottom">
-      <LoadoutPanel v-if="mode==='PROGRESSION'" :loadout="loadout" :unlocks="meta.unlocks" @change="loadout=$event" />
+      <LoadoutPanel v-if="mode==='PROGRESSION'" :loadout="loadout" :inventory="meta.inventory" @change="loadout=$event" />
       <button class="cta" :disabled="!canStart" @click="startGame">
         {{ $t('btn.play') }}
       </button>
@@ -50,6 +63,7 @@ import ChapterGrid from '@/components/home/ChapterGrid.vue'
 import TalentTree from '@/components/home/TalentTree.vue'
 import ShopPanel from '@/components/home/ShopPanel.vue'
 import LoadoutPanel from '@/components/home/LoadoutPanel.vue'
+import ArmoryPanel from '@/components/home/ArmoryPanel.vue'
 
 import modes from '@/game/config/modes.config.js'
 import metaCfg from '@/game/config/meta.config.js'
@@ -60,7 +74,7 @@ const save = new SaveSystem()
 
 export default {
   name: 'HomeView',
-  components: { CurrencyBar, ModeCard, Tabs, ChapterGrid, TalentTree, ShopPanel, LoadoutPanel },
+  components: { CurrencyBar, ModeCard, Tabs, ChapterGrid, TalentTree, ShopPanel, LoadoutPanel, ArmoryPanel },
   data(){ return {
     mode: null,
     chapterId: null,
@@ -68,7 +82,8 @@ export default {
     tabs: [
       { key:'chapters', label: this.$t('home.chapters') },
       { key:'talents',  label: this.$t('home.talents') },
-      { key:'shop',     label: this.$t('home.shop') }
+      { key:'shop',     label: this.$t('home.shop') },
+      { key:'armory',   label: this.$t('home.armory') }
     ],
     meta: save.loadMeta(),
     trees: metaCfg.trees,
@@ -84,6 +99,17 @@ export default {
     }
   },
   methods:{
+    switchLang(){
+      const next = (this.$i18n.locale.value === 'zh-CN') ? 'en' : 'zh-CN'
+      this.$i18n.locale.value = next
+      localStorage.setItem('lang', next)
+      this.tabs = [
+        { key:'chapters', label: this.$t('home.chapters') },
+        { key:'talents',  label: this.$t('home.talents') },
+        { key:'shop',     label: this.$t('home.shop') },
+        { key:'armory',   label: this.$t('home.armory') }
+      ]
+    },
     selectMode(m){
       this.mode = m
       if (m==='PROGRESSION') this.tab='chapters'
@@ -101,12 +127,28 @@ export default {
       this.meta.trees[treeId][nodeId] = lv + 1
       save.saveMeta(this.meta)
     },
-    onUnlock({ type, id, cost }){
-      if (this.meta.soft < cost) return
-      this.meta.soft -= cost
-      this.meta.unlocks[`${type}:${id}`] = true
+    // Shop purchase -> inventory
+    onShopBuy({ weaponId, price }){
+      if (this.meta.soft < price) { alert(this.$t('home.insufficient')); return }
+      const inv = this.meta.inventory.weapons
+      if (inv[weaponId]?.owned) return
+      this.meta.soft -= price
+      inv[weaponId] = { owned:true, level:0 }
       save.saveMeta(this.meta)
     },
+    // Armory actions
+    onArmoryUpgrade({ weaponId }){
+      const inv = this.meta.inventory.weapons
+      const curLv = inv[weaponId]?.level || 0
+      const cost = Math.floor(this.prices.weaponUpgradeBase * Math.pow(this.prices.weaponUpgradeGrowth, curLv))
+      if (this.meta.soft < cost) { alert(this.$t('home.insufficient')); return }
+      this.meta.soft -= cost
+      inv[weaponId] = inv[weaponId] || { owned:true, level:0 }
+      inv[weaponId].level += 1
+      save.saveMeta(this.meta)
+    },
+    onArmoryEquip({ weaponId }){ this.loadout.weaponId = weaponId },
+    onArmoryUnequip(){ this.loadout.weaponId = 'mg'; save.saveMeta(this.meta) },
     startGame(){
       const q = new URLSearchParams()
       q.set('mode', this.mode || 'ENDLESS')

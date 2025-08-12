@@ -6,6 +6,7 @@
     "chapters": "Chapters",
     "talents": "Talents",
     "shop": "Shop",
+    "armory": "Armory",
     "start": "Start",
     "resume": "Resume",
     "selectChapter": "Select Chapter",
@@ -13,7 +14,16 @@
     "selected": "Selected",
     "locked": "Locked",
     "tipSelectMode": "Choose a mode to begin",
-    "currency": { "gold": "Gold", "core": "Core" }
+    "currency": { "gold": "Gold", "core": "Core" },
+    "owned": "Owned",
+    "notOwned": "Not owned",
+    "level": "Lv",
+    "buy": "Buy",
+    "equip": "Equip",
+    "unequip": "Unequip",
+    "upgrade": "Upgrade",
+    "price": "Price",
+    "insufficient": "Insufficient funds"
   },
   "chap": {
     "1-1": "Chapter 1 · Green Outskirts",

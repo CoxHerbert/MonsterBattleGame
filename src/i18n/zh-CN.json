@@ -6,6 +6,7 @@
     "chapters": "关卡",
     "talents": "天赋",
     "shop": "商店",
+    "armory": "仓库",
     "start": "开始",
     "resume": "继续",
     "selectChapter": "选择关卡",
@@ -16,7 +17,16 @@
     "currency": {
       "gold": "金币",
       "core": "核心"
-    }
+    },
+    "owned": "已拥有",
+    "notOwned": "未拥有",
+    "level": "等级",
+    "buy": "购买",
+    "equip": "装备",
+    "unequip": "卸下",
+    "upgrade": "升级",
+    "price": "价格",
+    "insufficient": "金币不足"
   },
   "chap": {
     "1-1": "第一章 · 绿地外围",
@@ -45,11 +55,11 @@
   },
   "weapon": {
     "mg": "机枪",
-    "mg.desc": "高射速，中等单发伤害。",
+    "mg.desc": "高射速，中等伤害。",
     "rocket": "火箭炮",
     "rocket.desc": "范围爆炸，低射速。",
     "laser": "激光枪",
-    "laser.desc": "持续导引伤害，穿透直线目标。"
+    "laser.desc": "持续导引、穿透直线目标。"
   },
   "ammo": {
     "bullet": "子弹",

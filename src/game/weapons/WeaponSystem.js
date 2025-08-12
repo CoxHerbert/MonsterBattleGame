@@ -26,6 +26,11 @@ export default class WeaponSystem {
     if (id===this.currentId) this._applyWeaponStats()
   }
 
+  applyLevel(id, lv){
+    this.levels[id] = lv
+    if (id===this.currentId) this._applyWeaponStats()
+  }
+
   _applyWeaponStats(){
     const def = WEAPONS[this.currentId]
     const lv = this.levels[this.currentId]||0

@@ -334,6 +334,8 @@ export default {
     }
     this.reset();
     const meta = new SaveSystem().loadMeta();
+    const wlv = meta?.inventory?.weapons?.[this.player.weaponId]?.level || 0;
+    this.weaponSys.applyLevel(this.player.weaponId, wlv);
     if (meta.trees) {
       for (const tree of Object.values(meta.trees)) {
         for (const [nodeId, lv] of Object.entries(tree)) {
