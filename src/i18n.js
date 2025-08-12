@@ -63,6 +63,13 @@ const messages = {
         bounce: '↩️弹射',
         split: '🔀分裂'
       },
+      chooseAugment: '选择增强',
+      augment: {
+        atk: '攻击力+20%',
+        aspd: '攻速+10%',
+        speed: '移速+10%',
+        hp: '最大生命+20'
+      },
       youDied: '你阵亡了',
       pressStart: '按 Start/Esc 切换暂停'
     }
@@ -128,6 +135,13 @@ const messages = {
         pierce: '🎯Pierce',
         bounce: '↩️Bounce',
         split: '🔀Split'
+      },
+      chooseAugment: 'Choose Augment',
+      augment: {
+        atk: 'Attack +20%',
+        aspd: 'Attack Speed +10%',
+        speed: 'Move Speed +10%',
+        hp: 'Max HP +20'
       },
       youDied: 'You Died',
       pressStart: 'Press Start/Esc to toggle pause'
