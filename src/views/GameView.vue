@@ -26,6 +26,7 @@
       </div>
 
       <div class="actions">
+
         <button @click="togglePause">{{ paused ? $t('game.resume') : $t('game.pause') }}</button>
         <button @click="toggleAutoFire">{{ autoFire ? $t('game.autoFireOn') : $t('game.autoFireOff') }}</button>
         <button @click="toggleFullscreen">{{ isAnyFullscreen ? $t('game.exitFullscreen') : $t('game.fullscreen') }}</button>
@@ -598,6 +599,7 @@ export default {
       this.reset();
       this.settingsOpen = false;
     },
+
     saveAndExit() {
       const saves = JSON.parse(localStorage.getItem('saves') || '[]');
       const id = Date.now();
@@ -1352,7 +1354,6 @@ export default {
 .game-over{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,.7); color:#fff; padding:20px; border-radius:12px; z-index:4; display:flex; flex-direction:column; gap:12px; align-items:center; }
 .game-over button{ background:#1f2937; color:#e5e7eb; border:0; padding:6px 10px; border-radius:10px; cursor:pointer; }
 .game-over button:hover{ filter:brightness(1.1); }
-
 
 /* 触摸层（仅触屏渲染） */
 .touch-layer{ position:absolute; inset:0; z-index:1; pointer-events:auto; }

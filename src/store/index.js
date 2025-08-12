@@ -1,14 +1,17 @@
 import { createStore } from 'vuex'
+
 import i18n from '../i18n'
 
 const VOL_KEY = 'zombie-volume'
 const MUTE_KEY = 'zombie-muted'
 const BGM_KEY = 'zombie-bgm'
+
 const LANG_KEY = 'zombie-lang'
 
 const volume = Number(localStorage.getItem(VOL_KEY))
 const muted = localStorage.getItem(MUTE_KEY) === '1'
 const bgmSaved = localStorage.getItem(BGM_KEY)
+
 const langSaved = localStorage.getItem(LANG_KEY) || 'zh'
 
 export default createStore({
@@ -18,6 +21,7 @@ export default createStore({
       muted,
       bgmOn: bgmSaved === null ? true : bgmSaved === '1',
       minimapOpen: true,
+
       minimapSize: 'medium',
       language: langSaved
     }
@@ -36,6 +40,7 @@ export default createStore({
       localStorage.setItem(BGM_KEY, v ? '1' : '0')
     },
     setMinimapOpen(state, v) { state.settings.minimapOpen = v },
+
     setMinimapSize(state, v) { state.settings.minimapSize = v },
     setLanguage(state, v) {
       state.settings.language = v

@@ -1,5 +1,6 @@
 <template>
   <div class="home">
+
     <h1 class="logo">{{ $t('home.title') }}</h1>
     <div class="buttons">
       <button @click="start">{{ $t('home.start') }}</button>
