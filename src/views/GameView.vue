@@ -132,9 +132,9 @@ function seedFrom(cx, cy, worldSeed){const s=((cx*73856093)^(cy*19349663)^worldS
 
 // 永久增益（Augments）定义
 const AUGMENTS = [
-  { id: 'atk',  name: '攻击强化',  apply(g) { g.player.damage *= 1.2; } },
-  { id: 'aspd', name: '攻速提升', apply(g) { g.player.fireInterval *= 0.9; } },
-  { id: 'speed', name: '移速提升', apply(g) { g.player.baseSpeed *= 1.1; } },
+  { id: 'atk',  name: '攻击强化',  apply(g) { g.player.damage += g.weapon.stats.dmg * 0.2; } },
+  { id: 'aspd', name: '攻速提升', apply(g) { g.weapon.stats.fireInterval *= 0.9; g.weaponSys.cooldown *= 0.9; } },
+  { id: 'speed', name: '移速提升', apply(g) { g.player.baseSpeed *= 1.1; g.player.speed = g.player.baseSpeed; } },
   { id: 'hp',   name: '生命提升', apply(g) { g.player.maxHp += 20; g.player.hp += 20; } }
 ];
 
@@ -165,7 +165,7 @@ export default {
         dir: 0,
         fireCooldown: 0,
         fireInterval: 0.12,
-        damage: 24
+        damage: 0
       },
 
       // inputs
@@ -677,7 +677,7 @@ export default {
       this.player.baseSpeed = 220;
       this.player.speed = this.player.baseSpeed;
       this.player.hp = 100; this.player.maxHp = 100;
-      this.player.fireInterval = 0.12; this.player.damage = 24;
+      this.player.fireInterval = 0.12; this.player.damage = 0;
       this.score = 0; this.combo = 1; this.comboTimer = 0;
       this.wave = 1; this.spawnInterval = 1.0; this.spawnTimer = 0;
       this.bullets = []; this.zombies = []; this.particles = []; this.drops = [];

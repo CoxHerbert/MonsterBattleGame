@@ -82,7 +82,7 @@ export default class BulletFactory {
 
   _calcDamage(base) {
     const p = this.s.player;
-    let dmg = base + (p.attack || 0);
+    let dmg = base + (p.damage || 0);
     const crit = Math.random() < (p.critRate || 0);
     if (crit) dmg *= 2.0;
     return dmg;
