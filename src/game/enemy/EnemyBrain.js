@@ -5,7 +5,7 @@ export default class EnemyBrain {
     if (z.cfg.shield){
       z.shieldRegenCd = Math.max(0, z.shieldRegenCd - dt);
       if (z.shieldHp<=0 && z.shieldRegenCd===0){
-        z.shieldHp = z.cfg.shield.hp; z.invuln = 0.4; z.shieldRegenCd = z.cfg.shield.regenCd || 8;
+        z.shieldHp = z.cfg.shield.hp; z.shieldRegenCd = z.cfg.shield.regenCd || 8;
       }
     }
 

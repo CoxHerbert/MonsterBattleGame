@@ -5,7 +5,6 @@ export default class EnemyAI {
   }
 
   step(e, dt){
-    if (e.invuln>0) e.invuln = Math.max(0, e.invuln - dt);
     if (e.burnTime>0){ e.burnTime -= dt; e.hp -= e.burnDps*dt; }
     if (e.hp <= 0) return;
     if (e.ai.summon) this._trySummon(e, dt);

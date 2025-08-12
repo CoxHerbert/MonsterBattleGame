@@ -12,7 +12,7 @@ export default class EnemyFactory {
       hp, maxHp: hp, speed: a.spd * (1 + wave*0.02) * powerMul,
       dmg: (a.dmg + wave*0.6) * powerMul,
       elite: !!a.elite, boss: !!a.boss, ghost: !!a.ghost,
-      ai: a.ai, invuln: 0, burnTime:0, burnDps:0,
+      ai: a.ai, burnTime:0, burnDps:0,
       shotCd: 0, dashCd: 1 + Math.random()*1.5, dashing:false, dashTime:0,
       summonCd:0, shieldHp: a.shield?.hp || 0, shieldRegenCd:0,
       ranged: ['spit','shoot','summon'].includes(a.ai),

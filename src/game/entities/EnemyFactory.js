@@ -21,7 +21,7 @@ export default class EnemyFactory {
       hp: 0, speed: tpl.base.speed * scale.speed(wave, chapter) * this.enrage.globalIntensity,
       dmg: Math.floor(tpl.base.dmg * scale.damage(wave, chapter) * this.enrage.globalIntensity),
       def: tpl.base.def||0, kind, elite:false, boss:false,
-      ai: { ...tpl.ai }, shotCd: 0, burnTime:0, burnDps:0, invuln:0
+      ai: { ...tpl.ai }, shotCd: 0, burnTime:0, burnDps:0
     };
     e.hp = e.maxHp; return e;
   }
