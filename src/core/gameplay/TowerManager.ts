@@ -2,6 +2,7 @@ import { Tower, TowerStats } from './Tower'
 import type { TowerDef } from '../data/types'
 import { pickTarget } from './Targeting'
 import { ProjectileManager } from './ProjectileManager'
+import { Fx } from '../fx/FxSystem'
 
 export class TowerManager {
   towers: Tower[] = []
@@ -46,6 +47,7 @@ export class TowerManager {
       if (t.cooldown <= 0) {
         const target = pickTarget({ x: t.x, y: t.y }, t.stats.range, t.stats.targetPriority!)
         if (target) {
+          Fx.muzzleFlash(t.x, t.y)
           this.projectiles.fire({ x: t.x, y: t.y }, target, t.stats as TowerStats, t.uid)
           t.cooldown = 1 / t.stats.fireRate
         }

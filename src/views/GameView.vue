@@ -47,6 +47,7 @@ import type { LevelConfig, TowerDef } from '../core/data/types'
 import { Assets } from '../core/engine/Assets'
 import { buildTileLayer, drawLane } from '../core/engine/Tilemap'
 import { Container } from 'pixi.js'
+import { Fx } from '../core/fx/FxSystem'
 
 export default {
   name: 'GameView',
@@ -60,7 +61,9 @@ export default {
       selectedTower: null as string | null,
       enemies: [] as any[],
       level: level as LevelConfig,
-      towers: towersData as TowerDef[]
+      towers: towersData as TowerDef[],
+      mouseX: 0,
+      mouseY: 0
     }
   },
   computed: {
@@ -72,6 +75,8 @@ export default {
     this.setup()
   },
   beforeUnmount() {
+    window.removeEventListener('keydown', this.handleFxKeys)
+    this.$refs.canvas?.removeEventListener('pointermove', this.trackMouse as any)
     game.destroy()
   },
   methods: {
@@ -84,6 +89,8 @@ export default {
         wave: v => (this.wave = v),
         enemies: list => (this.enemies = list)
       })
+      Fx.init(game.renderer.app, game.renderer.app.stage)
+      Fx.setIntensity(this.$store.state.settings.fxIntensity)
       const tileLayer = new Container()
       game.renderer.app.stage.addChildAt(tileLayer, 1)
       const grid = Array.from({ length: 22 }, () => Array(40).fill(0))
@@ -94,6 +101,8 @@ export default {
       for (let x = 10; x < 30; x++) grid[5][x] = 1
       buildTileLayer(grid, tileLayer)
       drawLane(game.renderer.laneLayer, this.level.paths[0].waypoints)
+      canvas.addEventListener('pointermove', this.trackMouse)
+      window.addEventListener('keydown', this.handleFxKeys)
     },
     startWave() { game.startNextWave() },
     togglePause() { game.togglePause() },
@@ -110,7 +119,37 @@ export default {
       this.showSettings = false
       game.resume()
     },
-    restart() { location.reload() }
+    restart() { location.reload() },
+    trackMouse(e: PointerEvent) {
+      this.mouseX = e.offsetX
+      this.mouseY = e.offsetY
+    },
+    handleFxKeys(e: KeyboardEvent) {
+      const key = e.key.toLowerCase()
+      if (key === 'b') {
+        Fx.shockwave(this.mouseX, this.mouseY)
+      } else if (key === 't') {
+        const list = this.enemies
+        if (list.length > 1) {
+          const a = list[Math.floor(Math.random() * list.length)]
+          const b = list[Math.floor(Math.random() * list.length)]
+          Fx.chainLightning({ x: a.x, y: a.y }, { x: b.x, y: b.y })
+        }
+      } else if (key === 'g') {
+        let nearest: any = null
+        let min = Infinity
+        for (const e of this.enemies) {
+          const dx = e.x - this.mouseX
+          const dy = e.y - this.mouseY
+          const d = Math.hypot(dx, dy)
+          if (d < min) {
+            min = d
+            nearest = e
+          }
+        }
+        if (nearest) Fx.laser({ x: this.mouseX, y: this.mouseY }, { x: nearest.x, y: nearest.y })
+      }
+    }
   }
 }
 </script>
