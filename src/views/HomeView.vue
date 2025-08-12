@@ -2,7 +2,7 @@
   <div class="home">
     <header class="topbar">
       <h1>{{ $t('home.title') }}</h1>
-      <CurrencyBar :gold="meta.soft" :core="meta.hard" @switchLang="switchLang" />
+      <CurrencyBar :gold="meta.soft" :core="meta.hard" />
     </header>
 
     <section class="modes">
@@ -84,16 +84,6 @@ export default {
     }
   },
   methods:{
-    switchLang(){
-      const next = (this.$i18n.locale === 'zh-CN') ? 'en' : 'zh-CN'
-      this.$i18n.locale = next
-      localStorage.setItem('lang', next)
-      this.tabs = [
-        { key:'chapters', label: this.$t('home.chapters') },
-        { key:'talents',  label: this.$t('home.talents') },
-        { key:'shop',     label: this.$t('home.shop') }
-      ]
-    },
     selectMode(m){
       this.mode = m
       if (m==='PROGRESSION') this.tab='chapters'
