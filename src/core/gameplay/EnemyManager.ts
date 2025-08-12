@@ -4,7 +4,12 @@ import type { EnemyDef, LevelConfig } from '../data/types'
 export class EnemyManager {
   enemies: Enemy[] = []
 
-  constructor(private level: LevelConfig, private defs: Record<string, EnemyDef>, private onEscape?: () => void) {}
+  constructor(
+    private level: LevelConfig,
+    private defs: Record<string, EnemyDef>,
+    private onEscape?: () => void,
+    private onKill?: (gold: number) => void
+  ) {}
 
   spawn(enemyId: string, lane: number, pos: { x: number; y: number }): Enemy {
     const path = this.level.paths.find(p => p.lane === lane)?.waypoints || []
@@ -20,6 +25,11 @@ export class EnemyManager {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const e = this.enemies[i]
       e.update(dt)
+      if (e.hp <= 0) {
+        this.enemies.splice(i, 1)
+        this.onKill && this.onKill(e.bounty)
+        continue
+      }
       if (e.done) {
         this.enemies.splice(i, 1)
         this.onEscape && this.onEscape()

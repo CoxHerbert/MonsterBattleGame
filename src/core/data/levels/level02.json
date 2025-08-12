@@ -10,10 +10,10 @@
   ],
   "buildable": [],
   "startLife":20,
-  "startGold":150,
+  "startGold":120,
   "waves":[
-    {"id":"w1","spawns":[{"t":0,"enemyId":"grunt","count":10,"interval":0.6,"lane":0},{"t":0,"enemyId":"grunt","count":10,"interval":0.6,"lane":1}]},
-    {"id":"w2","spawns":[{"t":0,"enemyId":"runner","count":15,"interval":0.5,"lane":0},{"t":0,"enemyId":"runner","count":15,"interval":0.5,"lane":1}]},
-    {"id":"w3","spawns":[{"t":0,"enemyId":"tank","count":3,"interval":1.5,"lane":0},{"t":0,"enemyId":"tank","count":3,"interval":1.5,"lane":1}]}
+    {"id":"w1","reward":10,"spawns":[{"t":0,"enemyId":"grunt","count":10,"interval":0.6,"lane":0},{"t":0,"enemyId":"grunt","count":10,"interval":0.6,"lane":1}]},
+    {"id":"w2","reward":20,"spawns":[{"t":0,"enemyId":"runner","count":15,"interval":0.5,"lane":0},{"t":0,"enemyId":"runner","count":15,"interval":0.5,"lane":1}]},
+    {"id":"w3","reward":30,"spawns":[{"t":0,"enemyId":"tank","count":3,"interval":1.5,"lane":0},{"t":0,"enemyId":"tank","count":3,"interval":1.5,"lane":1}]}
   ]
 }

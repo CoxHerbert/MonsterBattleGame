@@ -14,7 +14,7 @@ export class WaveManager {
   private time = 0
   private states: SpawnState[] = []
 
-  constructor(private enemies: EnemyManager) {}
+  constructor(private enemies: EnemyManager, private onWaveComplete?: (reward?: number) => void) {}
 
   init(level: LevelConfig): void {
     this.level = level
@@ -51,8 +51,10 @@ export class WaveManager {
     }
     const allDone = this.states.every(s => s.spawned >= s.event.count)
     if (allDone && this.enemies.enemies.length === 0) {
+      const wave = this.level.waves[this.index]
       this.running = false
       this.index++
+      this.onWaveComplete?.(wave.reward)
     }
   }
 

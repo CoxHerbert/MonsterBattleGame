@@ -34,9 +34,9 @@ export default defineComponent({
 
     const enemyDefs: Record<string, EnemyDef> = {}
     for (const d of enemiesData as EnemyDef[]) enemyDefs[d.id] = d
-    const enemies = new EnemyManager(cfg, enemyDefs, () => { life.value-- })
+    const enemies = new EnemyManager(cfg, enemyDefs, () => { life.value-- }, g => economy.gain(g))
     bindEnemyManager(enemies)
-    const waves = new WaveManager(enemies)
+    const waves = new WaveManager(enemies, r => { if (r) economy.gain(r) })
     waves.init(cfg)
 
     const towerDefs: Record<string, TowerDef> = {}

@@ -10,7 +10,7 @@ export interface TowerStats {
   projectileType?: string
   aoeRadius?: number
   statusOnHit?: StatusEffect
-  targetPriority?: 'first' | 'last' | 'strong' | 'weak'
+  targetPriority?: 'first' | 'last' | 'strong' | 'close'
 }
 
 export class Tower {
@@ -19,5 +19,6 @@ export class Tower {
   level = 1
   constructor(public x: number, public y: number, public stats: TowerStats) {
     this.uid = Math.random().toString(36).slice(2)
+    if (!this.stats.targetPriority) this.stats.targetPriority = 'first'
   }
 }
