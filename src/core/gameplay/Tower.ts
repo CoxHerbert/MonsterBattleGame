@@ -1,5 +1,6 @@
 import type { DamageType } from './DamageSystem'
 import type { StatusEffect } from '../data/types'
+import type { Container, Sprite } from 'pixi.js'
 
 export interface TowerStats {
   range: number
@@ -26,4 +27,9 @@ export class Tower {
     this.uid = Math.random().toString(36).slice(2)
     if (!this.stats.targetPriority) this.stats.targetPriority = 'first'
   }
+
+  // display containers for rendering
+  node!: Container
+  head!: Container
+  headSprite!: Sprite
 }

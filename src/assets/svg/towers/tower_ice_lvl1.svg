@@ -1,9 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <style>
-    :root{ --c-main:#22d3ee; --c-accent:#67e8f9; --c-dark:#0e7490; --c-lite:#e0f2fe; }
-  </style>
-  <ellipse cx="32" cy="48" rx="18" ry="8" fill="rgba(0,0,0,.24)"/>
-  <path d="M20 44l12-20 12 20-12 4-12-4Z" fill="var(--c-main)" stroke="var(--c-dark)" stroke-width="2"/>
-  <path d="M32 24l6 10-6 2-6-2 6-10Z" fill="var(--c-accent)"/>
-  <circle cx="32" cy="30" r="4" fill="var(--c-lite)" opacity=".8"/>
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+<style>
+:root{--main-color:#3b82f6;}
+</style>
+<polygon points="32,12 40,24 32,36 24,24" fill="var(--main-color)"/>
+<polygon points="32,36 40,48 32,60 24,48" fill="var(--main-color)"/>
 </svg>

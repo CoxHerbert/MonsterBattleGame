@@ -3,11 +3,18 @@ import type { TowerDef } from '../data/types'
 import { pickTarget } from './Targeting'
 import { ProjectileManager } from './ProjectileManager'
 import { Fx } from '../fx/FxSystem'
+import { Container, Sprite } from 'pixi.js'
+import { SvgAssets, TowerBasePad, TowerSpriteMap } from '../engine/SvgAssets'
 
 export class TowerManager {
   towers: Tower[] = []
 
-  constructor(private defs: Record<string, TowerDef>, private projectiles: ProjectileManager) {}
+  constructor(
+    private defs: Record<string, TowerDef>,
+    private projectiles: ProjectileManager,
+    private layer: Container,
+    private tileSize: number
+  ) {}
 
   placeTower(towerId: string, x: number, y: number): Tower | null {
     const def = this.defs[towerId]
@@ -23,6 +30,26 @@ export class TowerManager {
       statusOnHit: def.statusOnHit,
       targetPriority: def.targetPriority
     })
+    const node = new Container()
+    node.position.set(x, y)
+
+    const baseSp = new Sprite(SvgAssets.texture(TowerBasePad))
+    baseSp.anchor.set(0.5, 0.85)
+    baseSp.scale.set(this.tileSize / 64)
+    node.addChild(baseSp)
+
+    const headWrap = new Container()
+    const headSp = new Sprite(SvgAssets.texture(TowerSpriteMap[towerId as keyof typeof TowerSpriteMap]))
+    headSp.anchor.set(0.5, 0.85)
+    headSp.scale.set(this.tileSize / 64)
+    headWrap.addChild(headSp)
+    node.addChild(headWrap)
+
+    tower.node = node
+    tower.head = headWrap
+    tower.headSprite = headSp
+
+    this.layer.addChild(node)
     this.towers.push(tower)
     return tower
   }
@@ -47,11 +74,19 @@ export class TowerManager {
       if (t.cooldown <= 0) {
         const target = pickTarget({ x: t.x, y: t.y }, t.stats.range, t.stats.targetPriority!)
         if (target) {
+          const ang = Math.atan2(target.y - t.y, target.x - t.x)
+          t.head.rotation = ang
           Fx.muzzleFlash(t.x, t.y)
           this.projectiles.fire({ x: t.x, y: t.y }, target, t.stats as TowerStats, t.uid)
           t.cooldown = 1 / t.stats.fireRate
         }
       }
     }
+  }
+
+  setTowerColor(towerUid: string, color: string) {
+    const t = this.towers.find(tt => tt.uid === towerUid)
+    if (!t) return
+    SvgAssets.replaceColor(t.headSprite.texture, 'main-color', color)
   }
 }

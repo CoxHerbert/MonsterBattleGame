@@ -45,6 +45,7 @@ import level from '../core/data/levels/level01.json'
 import towersData from '../core/data/towers.json'
 import type { LevelConfig, TowerDef } from '../core/data/types'
 import { Assets } from '../core/engine/Assets'
+import { SvgAssets, TowerSpriteMap, TowerBasePad } from '../core/engine/SvgAssets'
 import { buildTileLayer, drawLane } from '../core/engine/Tilemap'
 import { Container } from 'pixi.js'
 import { Fx } from '../core/fx/FxSystem'
@@ -82,7 +83,10 @@ export default {
   methods: {
     async setup() {
       const canvas = this.$refs.canvas as HTMLCanvasElement
-      await Assets.load()
+      await Promise.all([
+        Assets.load(),
+        SvgAssets.preload([TowerBasePad, ...Object.values(TowerSpriteMap)])
+      ])
       game.init(canvas, this.level, {
         gold: v => (this.gold = v),
         life: v => (this.life = v),
@@ -103,6 +107,19 @@ export default {
       drawLane(game.renderer.laneLayer, this.level.paths[0].waypoints)
       canvas.addEventListener('pointermove', this.trackMouse)
       window.addEventListener('keydown', this.handleFxKeys)
+
+      const ts = this.level.tileSize
+      game.towers.placeTower('arrow', ts * 4, ts * 6)
+      game.towers.placeTower('cannon', ts * 6, ts * 6)
+      game.towers.placeTower('ice', ts * 8, ts * 6)
+      game.towers.placeTower('tesla', ts * 10, ts * 6)
+
+      const arrow = game.towers.towers.find(t => t.id === 'arrow')
+      if (arrow) {
+        setTimeout(() => {
+          game.towers.setTowerColor(arrow.uid, '#ef4444')
+        }, 1000)
+      }
     },
     startWave() { game.startNextWave() },
     togglePause() { game.togglePause() },

@@ -72,7 +72,7 @@ class Game {
 
     for (const t of towersData as TowerDef[]) this.towerDefs[t.id] = t
     this.projectiles = new ProjectileManager(this.statuses, this.enemies)
-    this.towers = new TowerManager(this.towerDefs, this.projectiles)
+    this.towers = new TowerManager(this.towerDefs, this.projectiles, this.renderer.towerLayer, level.tileSize)
 
     this.cols = Math.floor(level.width / level.tileSize)
     this.rows = Math.floor(level.height / level.tileSize)
@@ -101,11 +101,10 @@ class Game {
       const def = this.towerDefs[this.buildId]
       const cx = gx * level.tileSize + level.tileSize / 2
       const cy = gy * level.tileSize + level.tileSize / 2
-      if (this.canPlace(gx, gy, this.buildId) && this.economy.spend(def.cost)) {
-        this.towers.placeTower(def.id, cx, cy)
-        this.renderer.drawTowers(this.towers.towers)
-        callbacks.gold && callbacks.gold(this.economy.gold)
-      }
+        if (this.canPlace(gx, gy, this.buildId) && this.economy.spend(def.cost)) {
+          this.towers.placeTower(def.id, cx, cy)
+          callbacks.gold && callbacks.gold(this.economy.gold)
+        }
     })
     this.input.onCommand(cmd => {
       switch (cmd) {
@@ -143,7 +142,6 @@ class Game {
         const tower = this.towers.placeTower(t.id, cx, cy)
         if (tower) tower.level = t.level
       }
-      this.renderer.drawTowers(this.towers.towers)
       this.currentWave = this.waves.currentWave + 1
       callbacks.wave && callbacks.wave(this.currentWave)
     }
@@ -164,7 +162,6 @@ class Game {
         this.projectiles.update(dt)
         this.statuses.tick(dt)
         this.renderer.drawEnemies(this.enemies.enemies)
-        this.renderer.drawTowers(this.towers.towers)
         this.renderer.drawProjectiles(this.projectiles.projectiles)
         if (!this.waves.isWaveRunning()) this.running = false
         this.currentWave = this.waves.currentWave + 1

@@ -13,7 +13,7 @@ export class Renderer {
 
   private gridG = new Graphics()
   public laneLayer = new Container()
-  private towerLayer = new Container()
+  public towerLayer = new Container()
   private enemyLayer = new Container()
   private projectileLayer = new Container()
   private overlayLayer = new Container()
