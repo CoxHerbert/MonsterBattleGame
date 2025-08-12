@@ -334,8 +334,11 @@ export default {
     }
     this.reset();
     const meta = new SaveSystem().loadMeta();
-    const wlv = meta?.inventory?.weapons?.[this.player.weaponId]?.level || 0;
+    const inv = meta?.inventory?.weapons?.[this.player.weaponId];
+    const wlv = inv?.level || 0;
+    const skinId = inv?.skins?.equipped || 'default';
     this.weaponSys.applyLevel(this.player.weaponId, wlv);
+    this.weaponSys.s.weapon.skinId = skinId;
     if (meta.trees) {
       for (const tree of Object.values(meta.trees)) {
         for (const [nodeId, lv] of Object.entries(tree)) {

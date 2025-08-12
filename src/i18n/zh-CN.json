@@ -25,6 +25,8 @@
     "equip": "装备",
     "unequip": "卸下",
     "upgrade": "升级",
+    "upgradeX5": "升级×5",
+    "sell": "回收",
     "price": "价格",
     "insufficient": "金币不足"
   },

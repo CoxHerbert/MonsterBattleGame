@@ -22,6 +22,8 @@
     "equip": "Equip",
     "unequip": "Unequip",
     "upgrade": "Upgrade",
+    "upgradeX5": "Upgrade ×5",
+    "sell": "Sell",
     "price": "Price",
     "insufficient": "Insufficient funds"
   },

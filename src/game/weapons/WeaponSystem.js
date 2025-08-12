@@ -52,7 +52,13 @@ export default class WeaponSystem {
         }
       }
     }
-    this.s.weapon = { id:def.id, stats:agg, iconKey:def.icon, bulletIconKey:def.bulletIcon }
+    this.s.weapon = {
+      id: def.id,
+      stats: agg,
+      iconKey: def.icon,
+      bulletIconKey: def.bulletIcon,
+      skinId: this.s.weapon?.skinId || 'default'
+    }
     this.cooldown = 0
   }
 

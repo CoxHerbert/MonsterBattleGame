@@ -32,7 +32,8 @@
           :gold="meta.soft"
           :inventory="meta.inventory"
           :prices="prices"
-          @buy="onShopBuy" />
+          @buy="onShopBuy"
+          @buy-skin="onShopBuySkin" />
       </div>
       <div v-else-if="tab==='armory'">
         <ArmoryPanel
@@ -41,8 +42,11 @@
           :gold="meta.soft"
           :equipped="loadout.weaponId"
           @upgrade="onArmoryUpgrade"
+          @upgrade-bulk="onArmoryUpgradeBulk"
           @equip="onArmoryEquip"
-          @unequip="onArmoryUnequip" />
+          @unequip="onArmoryUnequip"
+          @sell="onArmorySell"
+          @equip-skin="onArmoryEquipSkin" />
       </div>
     </section>
 
@@ -68,6 +72,7 @@ import ArmoryPanel from '@/components/home/ArmoryPanel.vue'
 import modes from '@/game/config/modes.config.js'
 import metaCfg from '@/game/config/meta.config.js'
 import econ from '@/game/config/economy.config.js'
+import wcfg from '@/game/config/weapons.config.js'
 import SaveSystem from '@/game/systems/SaveSystem.js'
 
 const save = new SaveSystem()
@@ -127,28 +132,89 @@ export default {
       this.meta.trees[treeId][nodeId] = lv + 1
       save.saveMeta(this.meta)
     },
-    // Shop purchase -> inventory
+    // —— 成本工具 —— //
+    weaponCostAt(weaponId, level){
+      const rkey = this.meta.inventory.weapons[weaponId]?.rarity || wcfg[weaponId].rarity || 'common';
+      const rmul = econ.rarity[rkey]?.upgradeMul || 1;
+      return Math.floor(econ.prices.weaponUpgradeBase * Math.pow(econ.prices.weaponUpgradeGrowth, level) * rmul);
+    },
+    weaponBulkCost(weaponId, count){
+      const inv = this.meta.inventory.weapons[weaponId]; if (!inv) return 0;
+      const maxLv = (econ.rarity[inv.rarity]?.maxLv) || 5;
+      let lv = inv.level, sum = 0;
+      for (let i=0;i<count;i++){
+        if (lv >= maxLv) break;
+        const c = this.weaponCostAt(weaponId, lv);
+        sum += Math.floor(c * econ.prices.upgradeBulkDiscount);
+        lv++;
+      }
+      return sum;
+    },
+    addSpend(weaponId, amount){
+      const s = this.meta.spend.weapons; s[weaponId] = (s[weaponId]||0) + amount;
+    },
+
+    // —— 商城：买武器/皮肤 —— //
     onShopBuy({ weaponId, price }){
-      if (this.meta.soft < price) { alert(this.$t('home.insufficient')); return }
-      const inv = this.meta.inventory.weapons
-      if (inv[weaponId]?.owned) return
-      this.meta.soft -= price
-      inv[weaponId] = { owned:true, level:0 }
-      save.saveMeta(this.meta)
+      const inv = this.meta.inventory.weapons;
+      if (inv[weaponId]?.owned) return;
+      if (this.meta.soft < price) { alert(this.$t('home.insufficient')); return; }
+      this.meta.soft -= price;
+      inv[weaponId] = { owned:true, level:0, rarity: wcfg[weaponId].rarity || 'common', skins:{ owned:['default'], equipped:'default' } };
+      this.addSpend(weaponId, price);
+      save.saveMeta(this.meta);
     },
-    // Armory actions
+    onShopBuySkin({ weaponId, skinId }){
+      const price = econ.prices.skin[weaponId]?.[skinId] || 0;
+      const inv = this.meta.inventory.weapons[weaponId];
+      if (!inv?.owned) return;
+      if (inv.skins.owned.includes(skinId)) return;
+      if (this.meta.soft < price) { alert(this.$t('home.insufficient')); return; }
+      this.meta.soft -= price;
+      inv.skins.owned.push(skinId);
+      save.saveMeta(this.meta);
+    },
+
+    // —— 仓库：升级/装备/卸下/批量/回收/皮肤 —— //
     onArmoryUpgrade({ weaponId }){
-      const inv = this.meta.inventory.weapons
-      const curLv = inv[weaponId]?.level || 0
-      const cost = Math.floor(this.prices.weaponUpgradeBase * Math.pow(this.prices.weaponUpgradeGrowth, curLv))
-      if (this.meta.soft < cost) { alert(this.$t('home.insufficient')); return }
-      this.meta.soft -= cost
-      inv[weaponId] = inv[weaponId] || { owned:true, level:0 }
-      inv[weaponId].level += 1
-      save.saveMeta(this.meta)
+      const inv = this.meta.inventory.weapons[weaponId]; if (!inv?.owned) return;
+      const maxLv = (econ.rarity[inv.rarity]?.maxLv) || 5;
+      if (inv.level >= maxLv) return;
+      const cost = this.weaponCostAt(weaponId, inv.level);
+      if (this.meta.soft < cost) { alert(this.$t('home.insufficient')); return; }
+      this.meta.soft -= cost; inv.level += 1; this.addSpend(weaponId, cost);
+      save.saveMeta(this.meta);
     },
-    onArmoryEquip({ weaponId }){ this.loadout.weaponId = weaponId },
-    onArmoryUnequip(){ this.loadout.weaponId = 'mg'; save.saveMeta(this.meta) },
+    onArmoryUpgradeBulk({ weaponId, count }){
+      const inv = this.meta.inventory.weapons[weaponId]; if (!inv?.owned) return;
+      const cost = this.weaponBulkCost(weaponId, count);
+      if (cost<=0) return;
+      if (this.meta.soft < cost) { alert(this.$t('home.insufficient')); return; }
+      const maxLv = (econ.rarity[inv.rarity]?.maxLv) || 5;
+      let up = 0, lv = inv.level;
+      for (; up<count && lv<maxLv; up++, lv++);
+      this.meta.soft -= cost; inv.level += up; this.addSpend(weaponId, cost);
+      save.saveMeta(this.meta);
+    },
+    onArmoryEquip({ weaponId }){ this.loadout.weaponId = weaponId; save.saveMeta(this.meta); },
+    onArmoryUnequip(){ this.loadout.weaponId = 'mg'; save.saveMeta(this.meta); },
+    onArmorySell({ weaponId }){
+      if (weaponId==='mg') return;
+      const inv = this.meta.inventory.weapons[weaponId]; if (!inv?.owned) return;
+      const spent = this.meta.spend.weapons[weaponId] || 0;
+      const refund = Math.floor(spent * econ.sellbackRate);
+      delete this.meta.inventory.weapons[weaponId];
+      delete this.meta.spend.weapons[weaponId];
+      if (this.loadout.weaponId === weaponId) this.loadout.weaponId = 'mg';
+      this.meta.soft += refund;
+      save.saveMeta(this.meta);
+    },
+    onArmoryEquipSkin({ weaponId, skinId }){
+      const inv = this.meta.inventory.weapons[weaponId]; if (!inv?.owned) return;
+      if (!inv.skins.owned.includes(skinId)) return;
+      inv.skins.equipped = skinId;
+      save.saveMeta(this.meta);
+    },
     startGame(){
       const q = new URLSearchParams()
       q.set('mode', this.mode || 'ENDLESS')
