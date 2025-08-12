@@ -28,14 +28,6 @@
         </select>
       </label>
     </div>
-    <div class="lang">
-      <label>{{ $t('settings.language') }}：
-        <select v-model="language">
-          <option value="zh">中文</option>
-          <option value="en">English</option>
-        </select>
-      </label>
-    </div>
     <button v-if="allowSave" @click="$emit('save')">{{ $t('settings.saveAndExit') }}</button>
     <button v-if="showRestart" @click="$emit('restart')">{{ $t('settings.restart') }}</button>
     <button @click="$emit('close')">{{ $t('settings.close') }}</button>
@@ -55,10 +47,6 @@ export default {
       get() { return this.settings.minimapSize },
       set(v) { this.$store.commit('setMinimapSize', v) }
     },
-    language: {
-      get() { return this.settings.language },
-      set(v) { this.$store.commit('setLanguage', v) }
-    }
   },
   methods: {
     onVolumeInput(e) { this.$store.commit('setVolume', Number(e.target.value)) },

@@ -1,0 +1,91 @@
+{
+  "home": {
+    "title": "僵尸突围",
+    "endless": "无尽模式",
+    "progression": "养成模式",
+    "chapters": "关卡",
+    "talents": "天赋",
+    "shop": "商店",
+    "armory": "仓库",
+    "start": "开始",
+    "resume": "继续",
+    "selectChapter": "选择关卡",
+    "loadout": "开局预设",
+    "selected": "已选择",
+    "locked": "未解锁",
+    "tipSelectMode": "请选择模式开始游戏",
+    "currency": {
+      "gold": "金币",
+      "core": "核心"
+    },
+    "owned": "已拥有",
+    "notOwned": "未拥有",
+    "level": "等级",
+    "buy": "购买",
+    "equip": "装备",
+    "unequip": "卸下",
+    "upgrade": "升级",
+    "upgradeX5": "升级×5",
+    "sell": "回收",
+    "price": "价格",
+    "insufficient": "金币不足"
+  },
+  "chap": {
+    "1-1": "第一章 · 绿地外围",
+    "1-2": "第一章 · 工业走廊"
+  },
+  "mode": {
+    "endless": "无尽",
+    "progression": "养成"
+  },
+  "talent": {
+    "offense": "输出系",
+    "survive": "生存系",
+    "atk_1": "强化攻击",
+    "crit_1": "致命一击",
+    "cdr_1": "冷却缩减",
+    "hp_1": "强健体魄",
+    "def_1": "厚实护甲",
+    "dash_i": "额外闪避"
+  },
+  "btn": {
+    "play": "开始游戏",
+    "enter": "进入",
+    "unlock": "解锁",
+    "upgrade": "升级",
+    "cancel": "取消"
+  },
+  "weapon": {
+    "mg": "机枪",
+    "mg.desc": "高射速，中等伤害。",
+    "rocket": "火箭炮",
+    "rocket.desc": "范围爆炸，低射速。",
+    "laser": "激光枪",
+    "laser.desc": "持续导引、穿透直线目标。"
+  },
+  "ammo": {
+    "bullet": "子弹",
+    "rocket": "火箭弹",
+    "beam": "光束"
+  },
+  "enemy": {
+    "zombie": "僵尸",
+    "brute": "蛮牛",
+    "spitter": "喷吐者",
+    "charger": "冲锋者",
+    "bomber": "自爆体",
+    "ranger": "射手",
+    "summoner": "召唤者",
+    "shield": "护盾兵",
+    "crawler": "匍匐者",
+    "ghost": "幽灵",
+    "boss_tyrant": "暴君",
+    "boss_matriarch": "母巢"
+  },
+  "fx": {
+    "poison": "中毒",
+    "burn": "燃烧",
+    "slow": "减速",
+    "shock": "震荡"
+  }
+}
