@@ -12,6 +12,7 @@ import { bindEnemyManager } from '../gameplay/Targeting'
 import { loadGame, saveGame } from '../gameplay/SaveSystem'
 import { ProjectileManager } from '../gameplay/ProjectileManager'
 import { StatusSystem } from '../gameplay/StatusSystem'
+import { Container } from 'pixi.js'
 
 export interface GameCallbacks {
   gold?: (v: number) => void
@@ -42,6 +43,7 @@ class Game {
   private buildable: number[][] = []
   private cols = 0
   private rows = 0
+  vfxLayer!: Container
 
   init(canvas: HTMLCanvasElement, level: LevelConfig = level1 as LevelConfig, callbacks: GameCallbacks = {}) {
     this.level = level
@@ -71,15 +73,24 @@ class Game {
     this.waves.init(level)
 
     for (const t of towersData as TowerDef[]) this.towerDefs[t.id] = t
-    this.projectiles = new ProjectileManager(this.statuses, this.enemies)
-    this.towers = new TowerManager(this.towerDefs, this.projectiles, this.renderer.towerLayer, level.tileSize)
+    this.renderer = new Renderer()
+    this.renderer.init(canvas, level)
+    this.vfxLayer = new Container()
+    this.renderer.app.stage.addChildAt(
+      this.vfxLayer,
+      this.renderer.app.stage.children.length - 1
+    )
+    this.projectiles = new ProjectileManager(this.statuses, this.enemies, this.vfxLayer)
+    this.towers = new TowerManager(
+      this.towerDefs,
+      this.projectiles,
+      this.renderer.towerLayer,
+      level.tileSize
+    )
 
     this.cols = Math.floor(level.width / level.tileSize)
     this.rows = Math.floor(level.height / level.tileSize)
     this.buildable = level.buildable.length ? level.buildable : this.genBuildable(level)
-
-    this.renderer = new Renderer()
-    this.renderer.init(canvas, level)
 
     this.input = new Input(canvas, level.tileSize)
     this.input.onPointer((gx, gy) => {
@@ -160,6 +171,8 @@ class Game {
         this.enemies.update(dt)
         this.towers.update(dt)
         this.projectiles.update(dt)
+        for (const n of [...this.vfxLayer.children])
+          ;(n as any).update?.(dt)
         this.statuses.tick(dt)
         this.renderer.drawEnemies(this.enemies.enemies)
         this.renderer.drawProjectiles(this.projectiles.projectiles)

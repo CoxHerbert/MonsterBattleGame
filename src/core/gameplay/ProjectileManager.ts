@@ -4,6 +4,10 @@ import { applyDamage } from './DamageSystem'
 import { StatusSystem } from './StatusSystem'
 import { EnemyManager } from './EnemyManager'
 import { Fx } from '../fx/FxSystem'
+import { Container } from 'pixi.js'
+import { HitSpark } from '../vfx/HitSpark'
+import { IceShatter } from '../vfx/IceShatter'
+import { HitFlash } from '../vfx/HitFlash'
 
 interface Projectile {
   x: number
@@ -17,7 +21,11 @@ interface Projectile {
 export class ProjectileManager {
   projectiles: Projectile[] = []
 
-  constructor(private statuses: StatusSystem, private enemies: EnemyManager) {}
+  constructor(
+    private statuses: StatusSystem,
+    private enemies: EnemyManager,
+    private vfxLayer: Container
+  ) {}
 
   fire(from: { x: number; y: number }, toEnemy: Enemy, stats: TowerStats, ownerId: string): void {
     if (stats.projectileType === 'chain') {
@@ -36,6 +44,7 @@ export class ProjectileManager {
       applyDamage(current, { amount: dmg, type: stats.damageType, sourceId: ownerId })
       if (stats.statusOnHit) this.statuses.add(current, { ...stats.statusOnHit, sourceId: ownerId })
       Fx.chainLightning(prevPoint, { x: current.x, y: current.y })
+      if (i === 0) this.vfxLayer.addChild(new HitFlash(current.x, current.y))
       hit.add(current)
       prevPoint = { x: current.x, y: current.y }
       dmg *= 0.7
@@ -66,9 +75,20 @@ export class ProjectileManager {
       const dist = Math.hypot(dx, dy)
       const step = p.speed * dt
       if (dist <= step) {
-        applyDamage(p.target, { amount: p.stats.damage, type: p.stats.damageType, sourceId: p.ownerId })
-        if (p.stats.statusOnHit) this.statuses.add(p.target, { ...p.stats.statusOnHit, sourceId: p.ownerId })
-        Fx.hit(p.target.x, p.target.y)
+        applyDamage(p.target, {
+          amount: p.stats.damage,
+          type: p.stats.damageType,
+          sourceId: p.ownerId,
+        })
+        if (p.stats.statusOnHit)
+          this.statuses.add(p.target, { ...p.stats.statusOnHit, sourceId: p.ownerId })
+        if (p.stats.damageType === 'ice') {
+          this.vfxLayer.addChild(new IceShatter(p.target.x, p.target.y))
+          this.vfxLayer.addChild(new HitFlash(p.target.x, p.target.y, 10, 0xcffafe))
+        } else {
+          this.vfxLayer.addChild(new HitSpark(p.target.x, p.target.y))
+          this.vfxLayer.addChild(new HitFlash(p.target.x, p.target.y))
+        }
         if (p.stats.aoeRadius) Fx.explosion(p.target.x, p.target.y)
         return false
       }

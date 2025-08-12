@@ -31,8 +31,12 @@ export const SvgAssets = {
 
 export const TowerBasePad = '/src/assets/svg/towers/tower_base_pad.svg'
 export const TowerSpriteMap = {
-  arrow: '/src/assets/svg/towers/tower_arrow_lvl1.svg',
-  cannon: '/src/assets/svg/towers/tower_cannon_lvl1.svg',
-  ice: '/src/assets/svg/towers/tower_ice_lvl1.svg',
-  tesla: '/src/assets/svg/towers/tower_tesla_lvl1.svg',
+  arrow: ['/src/assets/svg/towers/tower_arrow_lvl1.svg'],
+  cannon: ['/src/assets/svg/towers/tower_cannon_lvl1.svg'],
+  ice: [
+    '/src/assets/svg/towers/tower_ice_lvl1.svg',
+    '/src/assets/svg/towers/tower_ice_lvl2.svg',
+    '/src/assets/svg/towers/tower_ice_lvl3.svg'
+  ],
+  tesla: ['/src/assets/svg/towers/tower_tesla_lvl1.svg'],
 } as const

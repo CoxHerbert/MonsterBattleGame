@@ -1,0 +1,8 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+<style>
+:root{--main-color:#3b82f6;}
+</style>
+<polygon points="32,8 40,20 32,32 24,20" fill="var(--main-color)"/>
+<polygon points="32,32 40,44 32,56 24,44" fill="var(--main-color)"/>
+<polygon points="32,20 44,32 32,44 20,32" fill="var(--main-color)"/>
+</svg>

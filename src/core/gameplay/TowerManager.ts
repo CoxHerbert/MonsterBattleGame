@@ -39,7 +39,9 @@ export class TowerManager {
     node.addChild(baseSp)
 
     const headWrap = new Container()
-    const headSp = new Sprite(SvgAssets.texture(TowerSpriteMap[towerId as keyof typeof TowerSpriteMap]))
+    const headSp = new Sprite(
+      SvgAssets.texture(TowerSpriteMap[towerId as keyof typeof TowerSpriteMap][0])
+    )
     headSp.anchor.set(0.5, 0.85)
     headSp.scale.set(this.tileSize / 64)
     headWrap.addChild(headSp)
@@ -58,6 +60,9 @@ export class TowerManager {
     const t = this.towers.find(t => t.uid === towerUid)
     if (!t) return false
     t.level++
+    const sprites = TowerSpriteMap[t.id as keyof typeof TowerSpriteMap]
+    const next = sprites[t.level - 1]
+    if (next) t.headSprite.texture = SvgAssets.texture(next)
     return true
   }
 

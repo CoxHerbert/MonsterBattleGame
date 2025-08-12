@@ -85,7 +85,7 @@ export default {
       const canvas = this.$refs.canvas as HTMLCanvasElement
       await Promise.all([
         Assets.load(),
-        SvgAssets.preload([TowerBasePad, ...Object.values(TowerSpriteMap)])
+        SvgAssets.preload([TowerBasePad, ...Object.values(TowerSpriteMap).flat()])
       ])
       game.init(canvas, this.level, {
         gold: v => (this.gold = v),
@@ -119,6 +119,11 @@ export default {
         setTimeout(() => {
           game.towers.setTowerColor(arrow.uid, '#ef4444')
         }, 1000)
+      }
+      const ice = game.towers.towers.find(t => t.id === 'ice')
+      if (ice) {
+        setTimeout(() => game.towers.upgradeTower(ice.uid), 1000)
+        setTimeout(() => game.towers.upgradeTower(ice.uid), 2000)
       }
     },
     startWave() { game.startNextWave() },
