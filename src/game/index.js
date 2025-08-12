@@ -12,6 +12,7 @@ import AugmentSystem from './systems/AugmentSystem.js';
 import ScoreSystem from './systems/ScoreSystem.js';
 import EnrageSystem from './systems/EnrageSystem.js';
 import Renderer2D from './render/Renderer2D.js';
+import GameDirector from './director/GameDirector.js';
 
 export default class Game {
   constructor({ canvas, store, t }) {
@@ -46,6 +47,7 @@ export default class Game {
     this.augment = new AugmentSystem({ state: this.state });
     this.score = new ScoreSystem({ state: this.state });
     this.enrage = new EnrageSystem({ state: this.state });
+    this.director = new GameDirector({ state: this.state, spawner: this.spawner, enrage: this.enrage, world: this.world, bus: this.bus, audio: this.audio });
     this.renderer = new Renderer2D({ canvas, ctx: this.ctx, state: this.state, world: this.world, t });
   }
 
@@ -64,14 +66,19 @@ export default class Game {
   reset() { /* TODO: populate initial state */ }
 
   update(dt) {
+    this.director.update(dt);
     this.input.update(this.state, dt);
     this.world.refreshVisibleObstacles(this.state);
     this.combat.update(dt);
-    this.spawner.update(dt);
     this.combat.stepProjectiles(dt);
     this.combat.stepEnemies(dt);
     this.drop.update(dt);
     this.score.update(dt);
+
+    if (this.state.bossAlive && !this.state.zombies.some(z => z.boss)) {
+      this.state.bossAlive = false;
+      this.director.onBossDefeated();
+    }
   }
 
   draw() { this.renderer.drawFrame(); }

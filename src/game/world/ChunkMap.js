@@ -5,6 +5,7 @@ export default class ChunkMap {
     this.cs = chunkSize;
     this.cache = new Map();
     this.visible = [];
+    this.safeRadius = 0;
   }
   getChunk(cx, cy, worldSeed) {
     // TODO: implement obstacle/decor generation using RNG
@@ -17,5 +18,13 @@ export default class ChunkMap {
   refreshVisibleObstacles(state) {
     // TODO: sample chunks around camera and populate this.visible
     state.visibleObstacles = this.visible;
+  }
+
+  clearCache() {
+    this.cache.clear();
+  }
+
+  setSafeRadius(r) {
+    this.safeRadius = r;
   }
 }
