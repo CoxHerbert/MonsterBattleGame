@@ -13,6 +13,9 @@ import ScoreSystem from './systems/ScoreSystem.js';
 import EnrageSystem from './systems/EnrageSystem.js';
 import Renderer2D from './render/Renderer2D.js';
 import GameDirector from './director/GameDirector.js';
+import CharacterSystem from './systems/CharacterSystem.js';
+import WeaponSystem from './systems/WeaponSystem.js';
+import SkillSystem from './systems/SkillSystem.js';
 
 export default class Game {
   constructor({ canvas, store, t }) {
@@ -29,11 +32,12 @@ export default class Game {
       gameOver: false,
       isNativeFullscreen: false,
       isPseudoFullscreen: false,
-      player: null,
+      player: {},
       bullets: [],
       zombies: [],
       drops: [],
       particles: [],
+      timeNow: 0,
     };
 
     this.loop = new Loop(this.update.bind(this), this.draw.bind(this));
@@ -47,8 +51,12 @@ export default class Game {
     this.augment = new AugmentSystem({ state: this.state });
     this.score = new ScoreSystem({ state: this.state });
     this.enrage = new EnrageSystem({ state: this.state });
+    this.character = new CharacterSystem({ state: this.state, bus: this.bus });
+    this.weapon = new WeaponSystem({ state: this.state, audio: this.audio });
+    this.skills = new SkillSystem({ state: this.state, character: this.character, audio: this.audio });
     this.director = new GameDirector({ state: this.state, spawner: this.spawner, enrage: this.enrage, world: this.world, bus: this.bus, audio: this.audio });
     this.renderer = new Renderer2D({ canvas, ctx: this.ctx, state: this.state, world: this.world, t });
+    this.character.initPlayer();
   }
 
   async init() {
@@ -66,8 +74,16 @@ export default class Game {
   reset() { /* TODO: populate initial state */ }
 
   update(dt) {
+    this.state.timeNow += dt;
     this.director.update(dt);
     this.input.update(this.state, dt);
+    this.character.update(dt);
+    this.weapon.update(dt, this._fireCtx());
+    this.skills.update(dt);
+    if (this.input.fireIntent) this.weapon.tryFire(this._fireCtx());
+    if (this.input.keyPressed('Shift')) this.skills.cast('dodge', this._skillCtx());
+    if (this.input.keyPressed('E'))     this.skills.cast('shield', this._skillCtx());
+    if (this.input.keyPressed('Q'))     this.skills.cast('nuke', this._skillCtx());
     this.world.refreshVisibleObstacles(this.state);
     this.combat.update(dt);
     this.combat.stepProjectiles(dt);
@@ -84,4 +100,42 @@ export default class Game {
   draw() { this.renderer.drawFrame(); }
 
   resize = () => { /* TODO: handle canvas resizing and minimap */ };
+
+  _fireCtx(){
+    const s = this.state;
+    return {
+      s,
+      dir: s.player.dir,
+      muzzle:(ox=0,oy=0)=>({
+        x: s.player.x + Math.cos(s.player.dir)*(s.player.r+12)+ox,
+        y: s.player.y + Math.sin(s.player.dir)*(s.player.r+12)+oy
+      }),
+      spawnBullet:(b)=> this.combat.spawnBullet?.(b) || this._spawnBulletCompat(b),
+      spawnExplosion:(e)=> this.combat.spawnExplosion?.(e),
+      queryRay:(dir,range,width)=> this.combat.queryRay?.(dir,range,width) || [],
+      sfx:(n)=> this.audio.play?.(n)
+    };
+  }
+
+  _skillCtx(){
+    const s = this.state;
+    return {
+      s,
+      ps: s.player,
+      dir: s.player.dir,
+      addInvuln:(sec)=> this.character.addInvuln(sec),
+      addShield:(v)=> this.character.addShield(v),
+      dealGlobalBomb:(dmg,radius)=> this.combat.dealGlobalBomb?.(dmg,radius),
+      startCooldown:(id,cd,cdr)=> this.character.startCooldown(id,cd,cdr),
+      sfx:(n)=> this.audio.play?.(n),
+      cameraShake:(mag,sec)=> this.renderer.shake?.(mag,sec),
+      requestDash:(dx,dy,time)=> this.movement?.dash?.(dx,dy,time) || this._dashFallback(dx,dy,time)
+    };
+  }
+
+  _spawnBulletCompat(b){ this.state.bullets.push(b); }
+  _dashFallback(dx,dy,time){
+    this.state.player.x += dx;
+    this.state.player.y += dy;
+  }
 }
