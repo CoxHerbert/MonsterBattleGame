@@ -8,17 +8,6 @@ export default class BulletSystem {
 
   shoot(proto){
     let p = this.buff.applyToBullet(proto);
-    if (p.type === 'beam'){
-      // beams: check existing and update
-      const existing = this.bullets.find(b=>b.type==='beam' && b.from===p.from);
-      if (!existing){
-        this.bullets.push({ ...p, life:p.life ?? 0.08, _tick:0, tick:p.tick, tickDmg:p.tickDmg });
-      } else {
-        Object.assign(existing, p);
-        existing.life = p.life ?? existing.life;
-      }
-      return 1;
-    }
     const shots = 1 + (p._shotsAdd || 0);
     const spread = p.spread || 0;
     for (let i=0;i<shots;i++){
@@ -30,6 +19,33 @@ export default class BulletSystem {
     return shots;
   }
 
+  /* ===== 激光：持续型伤害（穿透障碍） =====
+     proto 字段：
+       - x,y, dir：起点与方向
+       - range：长度（像素）
+       - width：宽度（像素）
+       - dps：每秒伤害（会被 Buff 乘区修正）
+       - life：持续时间（秒）
+       - from：'player'（默认）
+  */
+  emitBeam(proto){
+    const snap = this.buff.getSnapshot();
+    const dps = Math.max(1, Math.floor((proto.dps||30) * (snap.dmgMul||1) * (snap.bullet.shotDmgMul||1)));
+
+    const beam = {
+      type:'beam',
+      from: proto.from || 'player',
+      x: proto.x, y: proto.y, dir: proto.dir,
+      range: proto.range || 520,
+      width: Math.max(2, proto.width || 6),
+      dps,
+      life: proto.life ?? 0.6,
+      burn: snap.bullet.burn ? { ...snap.bullet.burn } : null
+    };
+    this.bullets.push(beam);
+    return 1;
+  }
+
   update(dt){
     const list=this.bullets;
     const S=this.s;
@@ -37,19 +53,30 @@ export default class BulletSystem {
       const b=list[i];
 
       if (b.type==='beam'){
-        b.life -= dt; if (b.life<=0){ list.splice(i,1); continue; }
-        b._tick = (b._tick||0) - dt;
-        if (b._tick<=0){
-          b._tick = b.tick;
-          const cos=Math.cos(b.dir), sin=Math.sin(b.dir);
-          for (const z of S.zombies){
-            const dx=z.x-b.x, dy=z.y-b.y;
-            const proj=dx*cos+dy*sin;
-            if (proj < -z.r || proj > b.range + z.r) continue;
-            const px=b.x + cos * Math.max(0, Math.min(b.range, proj));
-            const py=b.y + sin * Math.max(0, Math.min(b.range, proj));
-            const dist=Math.hypot(z.x-px, z.y-py);
-            if (dist <= z.r + b.width){ z.hp -= b.tickDmg; if (z.hp<=0) this.onKill(z, S.zombies.indexOf(z)); }
+        b.life -= dt;
+        if (b.life <= 0) { list.splice(i,1); continue; }
+
+        const ex = b.x + Math.cos(b.dir) * b.range;
+        const ey = b.y + Math.sin(b.dir) * b.range;
+        const halfW = (b.width || 6) * 0.5;
+
+        for (let j=S.zombies.length-1; j>=0; j--){
+          const z = S.zombies[j];
+          const vx = ex - b.x, vy = ey - b.y;
+          const wx = z.x - b.x, wy = z.y - b.y;
+          const vv = vx*vx + vy*vy || 1e-6;
+          let t = (wx*vx + wy*vy) / vv; t = Math.max(0, Math.min(1, t));
+          const cx = b.x + vx * t, cy = b.y + vy * t;
+          const dist = Math.hypot(z.x - cx, z.y - cy);
+          if (dist <= z.r + halfW){
+            z.hp -= Math.max(1, Math.floor((b.dps||30) * dt));
+            if (b.burn){
+              z.burnTime = Math.max(z.burnTime||0, b.burn.time||0);
+              z.burnDps  = b.burn.dps || z.burnDps || 0;
+            }
+            if (z.hp <= 0){
+              this.onKill(z, j);
+            }
           }
         }
         continue;
@@ -127,6 +154,7 @@ export default class BulletSystem {
       }
     }
     S.makeDeathBurst(b.x,b.y,'#ffcf6b'); this.sfx?.hit?.();
+    this.s.startShake && this.s.startShake(6, 280);
   }
 
   onKill(z, idx){

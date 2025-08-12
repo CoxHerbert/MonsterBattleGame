@@ -151,6 +151,7 @@ export default {
 
       // runtime
       running: false, paused: false, gameOver: false, lastTime: 0, accTime: 0,
+      shake: { t: 0, dur: 0, amp: 0 },
 
       // fullscreen
       isNativeFullscreen: false, isPseudoFullscreen: false,
@@ -415,6 +416,22 @@ export default {
       ctx.drawImage(img, -r, -r, size, size);
       ctx.restore();
       return true;
+    },
+
+    /* ===== 屏幕震动 ===== */
+    startShake(intensity = 6, durationMs = 250){
+      this.shake.amp = intensity;
+      this.shake.dur = Math.max(1, durationMs);
+      this.shake.t = this.shake.dur;
+    },
+    _applyShakeTransform(){
+      if (this.shake.t <= 0) return { dx:0, dy:0 };
+      const p = this.shake.t / this.shake.dur;
+      const fall = p * p;
+      const a = this.shake.amp * fall;
+      const dx = (Math.random()*2 - 1) * a;
+      const dy = (Math.random()*2 - 1) * a;
+      return { dx, dy };
     },
 
     /* ===== Fullscreen ===== */
@@ -918,6 +935,9 @@ export default {
     },
 
     update(dt) {
+      // Shake 计时
+      if (this.shake.t > 0) this.shake.t = Math.max(0, this.shake.t - dt*1000);
+
       // 相机
       const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
       const camX = this.player.x - w / 2, camY = this.player.y - h / 2;
@@ -1097,7 +1117,8 @@ export default {
       ctx.globalAlpha = 1;
 
       ctx.clearRect(0, 0, screenW, screenH);
-      ctx.save(); ctx.translate(-camX, -camY);
+      const { dx:shx, dy:shy } = this._applyShakeTransform();
+      ctx.save(); ctx.translate(-camX + shx, -camY + shy);
       this.drawTerrain(camX, camY, screenW, screenH);
       /* ★ 在敌人与玩家之前绘制地面预警（Telegraph 在地面层） */
       for (const z of this.zombies) {
@@ -1714,6 +1735,22 @@ export default {
       } else {
         this.buffSys.addTemp(type);
       }
+    },
+    fireLaser(){
+      const p = this.player;
+      const dir = p.dir;
+      const x = p.x + Math.cos(dir) * (p.r + 12);
+      const y = p.y + Math.sin(dir) * (p.r + 12);
+      this.bulletSys.emitBeam({
+        x, y, dir,
+        range: 560,
+        width: 8,
+        dps: Math.max(10, Math.floor((this.player.damage||24) * 0.9)),
+        life: 0.5,
+        from: 'player'
+      });
+      this.makeMuzzleFlash(x, y);
+      this.sfxShot?.();
     },
     findAutoAimTarget(range) { let best=null, bestD2=Infinity, px=this.player.x, py=this.player.y; for (const z of this.zombies){ const dx=z.x-px, dy=z.y-py, d2=dx*dx+dy*dy; if(d2<=range*range && d2<bestD2){best=z; bestD2=d2;}} return best; },
 

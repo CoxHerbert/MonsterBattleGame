@@ -45,36 +45,18 @@ export default class BulletFactory {
 
   fireLaser({ dir }) {
     const p = this.s.player;
-    const existing = this.s.bullets.find(b => b.type === 'beam' && b.owner === 'player');
-    const range = this.s.weapon.stats.range;
-    const width = this.s.weapon.stats.width;
-    const tick = this.s.weapon.stats.tick;
-    const dmg = this.s.buffSys.applyToBullet({ dmg: this._calcDamage(this.s.weapon.stats.tickDmg) }).dmg;
-    if (!existing) {
-      this.s.bullets.push({
-        type: 'beam',
-        owner: 'player',
-        x: p.x,
-        y: p.y,
-        dir,
-        range,
-        width,
-        from: 'player',
-        life: 0.08,
-        _tick: 0,
-        tick,
-        tickDmg: dmg
-      });
-    } else {
-      existing.x = p.x;
-      existing.y = p.y;
-      existing.dir = dir;
-      existing.range = range;
-      existing.width = width;
-      existing.tick = tick;
-      existing.tickDmg = dmg;
-      existing.life = 0.08;
-    }
+    const stats = this.s.weapon.stats;
+    const tickDmg = this._calcDamage(stats.tickDmg);
+    const dps = tickDmg / stats.tick;
+    this.s.bulletSys.emitBeam({
+      x: p.x,
+      y: p.y,
+      dir,
+      range: stats.range,
+      width: stats.width,
+      dps,
+      life: stats.tick
+    });
   }
 
   _calcDamage(base) {
