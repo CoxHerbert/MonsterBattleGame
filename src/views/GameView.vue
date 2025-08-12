@@ -874,12 +874,13 @@ export default {
     },
 
     update(dt) {
-      // 相机
+      // 相机（2.5D：扩大可见区域）
       const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
-      const camX = this.player.x - w / 2, camY = this.player.y - h / 2;
+      const camW = w * 2, camH = h * 2;
+      const camX = this.player.x - w, camY = this.player.y - h;
 
       // 可见障碍
-      this.refreshVisibleObstacles(camX, camY, w, h);
+      this.refreshVisibleObstacles(camX, camY, camW, camH);
 
       // buffs
       if (this.buff.speed  > 0) this.buff.speed  = Math.max(0, this.buff.speed  - dt);
@@ -1071,15 +1072,20 @@ export default {
     draw() {
       const ctx = this.ctx;
       const screenW = this.canvas.clientWidth, screenH = this.canvas.clientHeight;
-      const camX = this.player.x - screenW / 2, camY = this.player.y - screenH / 2;
+
+      // 2.5D 透视：扩大绘制区域，使用等距投影矩阵
+      const camW = screenW * 2, camH = screenH * 2;
+      const camX = this.player.x - screenW, camY = this.player.y - screenH;
 
       // —— 地形层（修复：始终在最底层，合成方式复位）——
       ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = 1;
 
       ctx.clearRect(0, 0, screenW, screenH);
-      ctx.save(); ctx.translate(-camX, -camY);
-      this.drawTerrain(camX, camY, screenW, screenH);
+      ctx.save();
+      ctx.setTransform(1, 0.5, -1, 0.5, screenW / 2, screenH / 2);
+      ctx.translate(-this.player.x, -this.player.y);
+      this.drawTerrain(camX, camY, camW, camH);
 
       // 掉落
       for (const d of this.drops) {
