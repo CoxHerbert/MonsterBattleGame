@@ -1183,7 +1183,9 @@ export default {
 
         const bw = z.r * 2, bh = 4, bx = z.x - z.r, by = z.y - z.r - 12;
         ctx.fillStyle = '#222'; ctx.fillRect(bx, by, bw, bh);
-        ctx.fillStyle = z.elite ? '#ff7b7b' : '#e55'; ctx.fillRect(bx, by, (z.hp/z.maxHp)*bw, bh);
+        const hpRatio = Math.max(0, Math.min(1, z.hp / z.maxHp));
+        ctx.fillStyle = z.elite ? '#ff7b7b' : '#e55';
+        ctx.fillRect(bx, by, hpRatio * bw, bh);
         const txt = Math.max(0, Math.ceil(z.hp)).toString();
         ctx.font = 'bold 12px ui-sans-serif, system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
         ctx.strokeStyle = 'rgba(0,0,0,0.9)'; ctx.lineWidth = 3; ctx.strokeText(txt, z.x, by - 2);
