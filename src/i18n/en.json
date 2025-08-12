@@ -43,5 +43,25 @@
     "bullet": "Bullet",
     "rocket": "Rocket",
     "beam": "Beam"
+  },
+  "enemy": {
+    "zombie": "Zombie",
+    "brute": "Brute",
+    "spitter": "Spitter",
+    "charger": "Charger",
+    "bomber": "Bomber",
+    "ranger": "Ranger",
+    "summoner": "Summoner",
+    "shield": "Shieldbearer",
+    "crawler": "Crawler",
+    "ghost": "Ghost",
+    "boss_tyrant": "Tyrant",
+    "boss_matriarch": "Matriarch"
+  },
+  "fx": {
+    "poison": "Poison",
+    "burn": "Burn",
+    "slow": "Slow",
+    "shock": "Shock"
   }
 }

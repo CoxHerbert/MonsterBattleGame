@@ -55,5 +55,25 @@
     "bullet": "子弹",
     "rocket": "火箭弹",
     "beam": "光束"
+  },
+  "enemy": {
+    "zombie": "僵尸",
+    "brute": "蛮牛",
+    "spitter": "喷吐者",
+    "charger": "冲锋者",
+    "bomber": "自爆体",
+    "ranger": "射手",
+    "summoner": "召唤者",
+    "shield": "护盾兵",
+    "crawler": "匍匐者",
+    "ghost": "幽灵",
+    "boss_tyrant": "暴君",
+    "boss_matriarch": "母巢"
+  },
+  "fx": {
+    "poison": "中毒",
+    "burn": "燃烧",
+    "slow": "减速",
+    "shock": "震荡"
   }
 }
