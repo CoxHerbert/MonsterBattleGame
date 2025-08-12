@@ -88,6 +88,7 @@
 import SettingsPanel from '../components/SettingsPanel.vue'
 import modes from '@/game/config/modes.config.js'
 import SaveSystem from '@/game/systems/SaveSystem.js'
+import WeaponSystem from '@/game/weapons/WeaponSystem.js'
 const LS_KEY = 'zombie-best-score-v1';
 
 /* ===== 内置SVG精灵（可替换为你的 PNG/SVG 地址） ===== */
@@ -194,6 +195,7 @@ export default {
 
       // entities
       bullets: [], zombies: [], particles: [], drops: [],
+      weaponSys: null,
 
       // spawn
       spawnTimer: 0, spawnInterval: 1.0, wave: 1,
@@ -325,6 +327,8 @@ export default {
     this.mode = q.mode || 'ENDLESS';
     this.chapterId = q.chapterId;
     this.player.weaponId = q.weapon || 'mg';
+    this.weaponSys = new WeaponSystem({ state: this, audio: this.audio });
+    this.weaponSys.switch(this.player.weaponId);
     if (this.mode === 'PROGRESSION' && this.chapterId) {
       const ch = modes.PROGRESSION.chapters.find(c=>c.id===this.chapterId);
       if (ch) this.worldSeed = ch.seed;
@@ -940,40 +944,78 @@ export default {
       // 开火
       const touchFire = (this.isTouchDevice && this.touch.right.active && (this.touch.right.mag > 0.25 || (this.autoAim.highlight && this.touch.right.mag > this.autoAim.minStickToFire)));
       const shouldFire = this.autoFire || this.mouse.down || this.gp.fire || touchFire;
-      this.player.fireCooldown = Math.max(0, this.player.fireCooldown - dt);
-      if (shouldFire && this.player.fireCooldown <= 0) {
-        this.fireBullet();
-        const base = this.player.fireInterval * (this.buff.spread > 0 ? 0.83 : 1.0);
-        this.player.fireCooldown = base;
-      }
+      this.weaponSys.update(dt, this.player.dir, shouldFire);
 
       // 子弹
       for (let i = this.bullets.length - 1; i >= 0; i--) {
         const b = this.bullets[i];
-        b.x += Math.cos(b.dir) * b.speed * dt;
-        b.y += Math.sin(b.dir) * b.speed * dt;
-        if (b.homing) {
-          const tDir = Math.atan2(this.player.y - b.y, this.player.x - b.x);
-          const diff = ((tDir - b.dir + Math.PI) % (Math.PI * 2)) - Math.PI;
-          const maxTurn = 2.5 * dt;
-          b.dir += this.clamp(diff, -maxTurn, maxTurn);
-        }
-        b.life -= dt;
-        if (this.pointHitObstacle(b.x, b.y)) {
-          if (b.bounce && b.bounce > 0) {
-            b.dir += Math.PI;
-            b.bounce--;
-            b.x += Math.cos(b.dir) * 4;
-            b.y += Math.sin(b.dir) * 4;
-          } else {
-            b.life = 0;
+
+        if (b.type === 'beam' && b.from === 'player') {
+          b.life -= dt;
+          if (b.life <= 0) { this.bullets.splice(i,1); continue; }
+          b._tick = (b._tick || 0) - dt;
+          if (b._tick <= 0) {
+            b._tick = b.tick;
+            const cos = Math.cos(b.dir), sin = Math.sin(b.dir);
+            for (const z of this.zombies) {
+              const dx = z.x - b.x, dy = z.y - b.y;
+              const proj = dx*cos + dy*sin;
+              if (proj < -z.r || proj > b.range + z.r) continue;
+              const px = b.x + cos * Math.max(0, Math.min(b.range, proj));
+              const py = b.y + sin * Math.max(0, Math.min(b.range, proj));
+              const dist = Math.hypot(z.x - px, z.y - py);
+              if (dist <= z.r + b.width) {
+                z.hp -= b.tickDmg;
+              }
+            }
           }
+          continue;
         }
-        if (b.life <= 0) { this.bullets.splice(i, 1); continue; }
-        if (b.from === 'enemy' && this.circleHit(b.x, b.y, 3, this.player.x, this.player.y, this.player.r)) {
+
+        b.x += Math.cos(b.dir || 0) * (b.speed || 0) * dt;
+        b.y += Math.sin(b.dir || 0) * (b.speed || 0) * dt;
+        b.life -= dt;
+
+        if (this.pointHitObstacle(b.x, b.y)) {
+          b.life = 0;
+        }
+
+        if (b.from === 'player') {
+          for (const z of this.zombies) {
+            if (this.circleHit(b.x, b.y, 3, z.x, z.y, z.r)) {
+              if (b.explodeOnExpire) {
+                b.life = 0;
+              } else {
+                z.hp -= b.dmg || 1;
+                b.life = 0;
+              }
+              break;
+            }
+          }
+        } else if (b.from === 'enemy' && this.circleHit(b.x, b.y, 3, this.player.x, this.player.y, this.player.r)) {
           this.player.hp -= b.dmg;
-          this.bullets.splice(i, 1);
+          b.life = 0;
         }
+
+        if (b.explodeOnExpire && b.life <= 0) {
+          const radius = b.explosion?.radius || 96;
+          const falloff = b.explosion?.falloff ?? 0.5;
+          for (const z of this.zombies) {
+            const dx = z.x - b.x, dy = z.y - b.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist <= radius) {
+              const ratio = 1 - dist / radius;
+              const dealt = (b.dmg || 0) * (falloff + (1 - falloff) * ratio);
+              z.hp -= dealt;
+            }
+          }
+          this.makeDeathBurst?.(b.x, b.y, '#ffcf6b');
+          this.sfxHit();
+          this.bullets.splice(i,1);
+          continue;
+        }
+
+        if (b.life <= 0) { this.bullets.splice(i,1); }
       }
 
       // Boss刷新
@@ -1110,6 +1152,13 @@ export default {
 
       // 子弹
       for (const b of this.bullets) {
+        if (b.type === 'beam') {
+          const ex = b.x + Math.cos(b.dir) * b.range;
+          const ey = b.y + Math.sin(b.dir) * b.range;
+          ctx.save(); ctx.globalAlpha = 0.85; ctx.strokeStyle = '#cfa5ff'; ctx.lineWidth = b.width;
+          ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(ex, ey); ctx.stroke(); ctx.restore();
+          continue;
+        }
         const color = b.color ? b.color : (b.burn ? '#ffb347' : (b.from === 'enemy' ? '#f99' : '#9cf'));
         const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 3);
         grad.addColorStop(0, '#fff');
@@ -1301,34 +1350,6 @@ export default {
     toggleMapOpen() { this.$store.commit('setMinimapOpen', !this.$store.state.settings.minimapOpen); },
 
     /* ===== Gameplay helpers ===== */
-    fireBullet() {
-      const p = this.player;
-      const baseDir = p.dir;
-      const shots = (this.buff.spread > 0 ? 3 : 1);
-      const spread = 0.18;
-      for (let i = 0; i < shots; i++) {
-        const offset = (i - (shots - 1) / 2) * spread;
-        const dir = baseDir + offset;
-        const muzzleX = p.x + Math.cos(dir) * (p.r + 12);
-        const muzzleY = p.y + Math.sin(dir) * (p.r + 12);
-        this.bullets.push({
-          x: muzzleX,
-          y: muzzleY,
-          dir,
-          speed: 740,
-          dmg: this.player.damage * (shots > 1 ? 0.65 : 1),
-          life: 0.9,
-          from: 'player',
-          pierce: this.buff.pierce > 0 ? 2 : 0,
-          bounce: this.buff.bounce > 0 ? 2 : 0,
-          burn: this.buff.burn > 0,
-          split: this.buff.split > 0,
-          fromSplit: false
-        });
-        this.makeMuzzleFlash(muzzleX, muzzleY);
-      }
-      this.sfxShot();
-    },
     spawnZombieRing() {
       const tries = 8;
       for (let k = 0; k < tries; k++) {

@@ -1,30 +1,68 @@
 export default {
-  mg: { // 机枪：高射速、中伤害、可少量散射
-    fireInterval: 0.12,
-    bulletSpeed: 780,
-    baseDamageMul: 1.0,    // 实际伤害 = attack * baseDamageMul
-    life: 0.9,
-    spreadRad: 0.045,      // 低幅随机扩散
-    pierce: 0, bounce: 0,
-    sfx: 'shot_mg'
+  mg: {
+    id: 'mg',
+    nameKey: 'weapon.mg',
+    descKey: 'weapon.mg.desc',
+    icon: 'ICON_MG',
+    bulletIcon: 'ICON_BULLET',
+    stats: {
+      dpsTier: 1.0,
+      dmg: 24,
+      fireInterval: 0.12,
+      speed: 740,
+      life: 0.9,
+      pierce: 0
+    },
+    growth: [
+      { level:1, delta:{ dmg:+4 } },
+      { level:2, delta:{ pierce:+1 } },
+      { level:3, delta:{ fireIntervalMul:0.9 } }
+    ],
+    fire: 'fireMG'
   },
-  rocket: { // 火箭炮：低射速、范围爆炸、击退
-    fireInterval: 0.85,
-    rocketSpeed: 560,
-    baseDamageMul: 2.2,    // 命中点直伤
-    splash: { radius: 120, falloff: 0.5 }, // 半径与中心->边缘伤害衰减
-    life: 1.6,
-    sfx: 'shot_rocket', sfxBoom: 'boom_med',
-    knockback: 220
+
+  rocket: {
+    id: 'rocket',
+    nameKey: 'weapon.rocket',
+    descKey: 'weapon.rocket.desc',
+    icon: 'ICON_ROCKET',
+    bulletIcon: 'ICON_ROCKET_AMMO',
+    stats: {
+      dpsTier: 1.1,
+      dmg: 120,
+      fireInterval: 0.6,
+      speed: 520,
+      life: 1.2,
+      splash: { radius: 96, falloff: 0.5 }
+    },
+    growth: [
+      { level:1, delta:{ dmg:+20 } },
+      { level:2, delta:{ splashRadius:+16 } },
+      { level:3, delta:{ fireIntervalMul:0.9 } }
+    ],
+    fire: 'fireRocket'
   },
-  laser: { // 激光：持续引导，按 Tick 结算
-    warmup: 0.12,          // 起手延迟
-    tick: 0.06,            // 伤害Tick
-    dpsMul: 1.4,           // 每秒伤害 = attack * dpsMul
-    range: 720,
-    width: 8,              // 像素
-    overheatSec: 3.6,      // 过热时间（持续开火累计）
-    cooldownSec: 1.8,      // 过热冷却
-    sfx: 'laser_loop'
+
+  laser: {
+    id: 'laser',
+    nameKey: 'weapon.laser',
+    descKey: 'weapon.laser.desc',
+    icon: 'ICON_LASER',
+    bulletIcon: 'ICON_BEAM',
+    stats: {
+      dpsTier: 1.0,
+      tickDmg: 16,
+      tick: 0.06,
+      range: 900,
+      width: 6,
+      channelCost: 0,
+      fireInterval: 0.04
+    },
+    growth: [
+      { level:1, delta:{ tickDmg:+4 } },
+      { level:2, delta:{ width:+2 } },
+      { level:3, delta:{ tick:-0.01, clampMin:0.03 } }
+    ],
+    fire: 'fireLaser'
   }
-};
+}

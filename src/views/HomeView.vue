@@ -34,7 +34,7 @@
     </section>
 
     <footer class="bottom">
-      <LoadoutPanel v-if="mode==='PROGRESSION'" :loadout="loadout" @change="loadout=$event" />
+      <LoadoutPanel v-if="mode==='PROGRESSION'" :loadout="loadout" :unlocks="meta.unlocks" @change="loadout=$event" />
       <button class="cta" :disabled="!canStart" @click="startGame">
         {{ $t('btn.play') }}
       </button>

@@ -15,7 +15,7 @@ import EnrageSystem from './systems/EnrageSystem.js';
 import Renderer2D from './render/Renderer2D.js';
 import GameDirector from './director/GameDirector.js';
 import CharacterSystem from './systems/CharacterSystem.js';
-import WeaponSystem from './systems/WeaponSystem.js';
+import WeaponSystem from './weapons/WeaponSystem.js';
 import SkillSystem from './systems/SkillSystem.js';
 import ModeManager from './systems/ModeManager.js';
 import EconomySystem from './systems/EconomySystem.js';

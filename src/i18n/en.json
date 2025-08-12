@@ -1,0 +1,47 @@
+{
+  "home": {
+    "title": "Zombie Breakout",
+    "endless": "Endless",
+    "progression": "Progression",
+    "chapters": "Chapters",
+    "talents": "Talents",
+    "shop": "Shop",
+    "start": "Start",
+    "resume": "Resume",
+    "selectChapter": "Select Chapter",
+    "loadout": "Loadout",
+    "selected": "Selected",
+    "locked": "Locked",
+    "tipSelectMode": "Choose a mode to begin",
+    "currency": { "gold": "Gold", "core": "Core" }
+  },
+  "chap": {
+    "1-1": "Chapter 1 · Green Outskirts",
+    "1-2": "Chapter 1 · Industrial Corridor"
+  },
+  "mode": { "endless": "Endless", "progression": "Progression" },
+  "talent": {
+    "offense": "Offense",
+    "survive": "Survival",
+    "atk_1": "Attack Up",
+    "crit_1": "Critical Chance",
+    "cdr_1": "Cooldown Reduction",
+    "hp_1": "Max HP Up",
+    "def_1": "Defense Up",
+    "dash_i": "Extra Dodge"
+  },
+  "btn": { "play": "Play", "enter": "Enter", "unlock": "Unlock", "upgrade": "Upgrade", "cancel": "Cancel" },
+  "weapon": {
+    "mg": "Machine Gun",
+    "mg.desc": "High fire rate, medium damage per shot.",
+    "rocket": "Rocket Launcher",
+    "rocket.desc": "AoE explosion, low fire rate.",
+    "laser": "Laser",
+    "laser.desc": "Channeled beam, pierces targets."
+  },
+  "ammo": {
+    "bullet": "Bullet",
+    "rocket": "Rocket",
+    "beam": "Beam"
+  }
+}

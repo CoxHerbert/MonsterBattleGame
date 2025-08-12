@@ -13,13 +13,19 @@
     "selected": "已选择",
     "locked": "未解锁",
     "tipSelectMode": "请选择模式开始游戏",
-    "currency": { "gold": "金币", "core": "核心" }
+    "currency": {
+      "gold": "金币",
+      "core": "核心"
+    }
   },
   "chap": {
     "1-1": "第一章 · 绿地外围",
     "1-2": "第一章 · 工业走廊"
   },
-  "mode": { "endless": "无尽", "progression": "养成" },
+  "mode": {
+    "endless": "无尽",
+    "progression": "养成"
+  },
   "talent": {
     "offense": "输出系",
     "survive": "生存系",
@@ -30,5 +36,24 @@
     "def_1": "厚实护甲",
     "dash_i": "额外闪避"
   },
-  "btn": { "play": "开始游戏", "enter": "进入", "unlock": "解锁", "upgrade": "升级", "cancel": "取消" }
+  "btn": {
+    "play": "开始游戏",
+    "enter": "进入",
+    "unlock": "解锁",
+    "upgrade": "升级",
+    "cancel": "取消"
+  },
+  "weapon": {
+    "mg": "机枪",
+    "mg.desc": "高射速，中等单发伤害。",
+    "rocket": "火箭炮",
+    "rocket.desc": "范围爆炸，低射速。",
+    "laser": "激光枪",
+    "laser.desc": "持续导引伤害，穿透直线目标。"
+  },
+  "ammo": {
+    "bullet": "子弹",
+    "rocket": "火箭弹",
+    "beam": "光束"
+  }
 }
