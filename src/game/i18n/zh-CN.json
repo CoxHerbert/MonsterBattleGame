@@ -1,0 +1,9 @@
+{
+  "weapon.AR01.name": "突击步枪 AR-01",
+  "ammo.FMJ": "全被甲弹",
+  "ammo.AP": "穿甲弹",
+  "ammo.HP": "空尖弹",
+  "mod.ExtMag": "扩容弹匣",
+  "mod.LongBarrel": "加长枪管",
+  "mod.ShockPerk": "感电改装"
+}

@@ -1809,9 +1809,7 @@ export default {
       const dropMul = dp.loot?.dropRateMul || 1.0;
       const dropBias = (z.elite ? 0.5 : 0.25) * dropMul;
       if (Math.random() < dropBias) {
-        const types = ['heal','speed','spread','burn','pierce','bounce','split'];
-        const type = types[Math.floor(Math.random()*types.length)];
-        this.spawnDrop(z.x, z.y, type);
+        this.spawnDrop(z.x, z.y, 'heal');
       }
     },
     handleBossDefeated(stage) {
@@ -1856,23 +1854,18 @@ export default {
     },
     spawnDrop(x, y, type) {
       const map = {
-        heal:{icon:'❤️',color:'#ff9aa2'},
-        speed:{icon:'⚡',color:'#f9d56e'},
-        spread:{icon:'🔱',color:'#9ad3bc'},
-        burn:{icon:'🔥',color:'#ffb347'},
-        pierce:{icon:'🎯',color:'#c49bbb'},
-        bounce:{icon:'↩️',color:'#b6e0fe'},
-        split:{icon:'🔀',color:'#d4a5a5'}
+        heal: { icon: '❤️', color: '#ff9aa2' }
       };
-      const cfg = map[type]; this.drops.push({ type, x, y, drawY:y, r:13, life:10, bob:0, icon:cfg.icon, color:cfg.color });
+      const cfg = map[type];
+      if (cfg) {
+        this.drops.push({ type, x, y, drawY: y, r: 13, life: 10, bob: 0, icon: cfg.icon, color: cfg.color });
+      }
     },
     applyDrop(type) {
       const dp = this.diffProfile || {};
-      if (type==='heal') {
+      if (type === 'heal') {
         const mul = dp.player?.healMul || 1.0;
         this.player.hp = Math.min(this.player.maxHp, this.player.hp + Math.round(35 * mul));
-      } else {
-        this.buffSys.addTemp(type);
       }
     },
     fireLaser(){

@@ -1,0 +1,9 @@
+{
+  "weapon.AR01.name": "Assault Rifle AR-01",
+  "ammo.FMJ": "FMJ Rounds",
+  "ammo.AP": "AP Rounds",
+  "ammo.HP": "HP Rounds",
+  "mod.ExtMag": "Extended Magazine",
+  "mod.LongBarrel": "Long Barrel",
+  "mod.ShockPerk": "Shock Mod"
+}
