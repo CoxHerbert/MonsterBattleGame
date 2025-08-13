@@ -1,62 +1,86 @@
 name: Deploy to GitHub Pages
 
 on:
-  push:
-    branches: [ "main" ]
-  workflow_dispatch:
+    push:
+        branches: ['main']
+    workflow_dispatch:
+        inputs:
+            node:
+                description: 'Node version'
+                required: false
+                default: '20'
+            buildScript:
+                description: 'Build script (package.json scripts)'
+                required: false
+                default: 'build'
+            cleanInstall:
+                description: 'Clean install (npm ci) or npm i'
+                type: boolean
+                required: false
+                default: true
+            distDir:
+                description: 'Build output directory'
+                required: false
+                default: 'dist'
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+    contents: read
+    pages: write
+    id-token: write
 
 concurrency:
-  group: "pages"
-  cancel-in-progress: true
+    group: 'pages'
+    cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    env:
-      GITHUB_PAGES: "true"        # 让 vite 的 base 动态生效
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    build:
+        runs-on: ubuntu-latest
+        env:
+            GITHUB_PAGES: 'true' # 让 Vite 的 base 动态生效
+            DIST_DIR: ${{ inputs.distDir || 'dist' }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ inputs.node || '20' }}
+                  cache: npm
 
-      - name: Install deps
-        run: npm ci
+            - name: Install deps
+              if: ${{ inputs.cleanInstall != 'false' && inputs.cleanInstall != false }}
+              run: npm ci
+            - name: Install deps (npm i fallback)
+              if: ${{ inputs.cleanInstall == 'false' || inputs.cleanInstall == false }}
+              run: npm i
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+            - name: Configure GitHub Pages
+              uses: actions/configure-pages@v5
 
-      - name: Build
-        run: npm run build
+            - name: Build
+              run: npm run ${{ inputs.buildScript || 'build' }}
 
-      # SPA 路由直达不 404（官方允许自定义 404 页）
-      - name: SPA fallback
-        run: cp dist/index.html dist/404.html
+            - name: SPA fallback
+              run: |
+                  cp "$DIST_DIR/index.html" "$DIST_DIR/404.html" || true
 
-      - name: Add .nojekyll
-        run: touch dist/.nojekyll
+            - name: Add .nojekyll
+              run: |
+                  touch "$DIST_DIR/.nojekyll"
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./dist
+            - name: Upload artifact
+              uses: actions/upload-pages-artifact@v3
+              with:
+                  path: ${{ env.DIST_DIR }}
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+    deploy:
+        needs: build
+        runs-on: ubuntu-latest
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        steps:
+            - name: Deploy to GitHub Pages
+              id: deployment
+              uses: actions/deploy-pages@v4
