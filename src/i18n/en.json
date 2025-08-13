@@ -32,9 +32,11 @@
     "resetConfirm": "Reset all settings to defaults?",
     "resetDone": "Settings reset.",
     "tip": "Tip: You can change graphics and screen shake in Settings.",
-    "continue": "Continue",
-    "openSaves": "Saves"
-  },
+      "continue": "Continue",
+      "openSaves": "Saves",
+      "mode": "Mode",
+      "difficulty": "Difficulty"
+    },
   "saves": {
     "title": "Save Slots",
     "empty": "No saves yet.",

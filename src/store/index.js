@@ -1,5 +1,7 @@
 import { createStore } from 'vuex'
 import { createPersistSettingsPlugin, loadSettingsFromStorage } from './plugins/persistSettings'
+import gameModule from './modules/game'
+import { createPersistGamePlugin } from './plugins/persistGame'
 
 // 统一默认值（新增的 effectsQuality 与 screenShake 在这）
 const DEFAULT_SETTINGS = {
@@ -15,6 +17,9 @@ const DEFAULT_SETTINGS = {
 };
 
 export default createStore({
+  modules: {
+    game: gameModule
+  },
   state: {
     settings: loadSettingsFromStorage(DEFAULT_SETTINGS)
   },
@@ -42,5 +47,5 @@ export default createStore({
       state.settings = loadSettingsFromStorage(DEFAULT_SETTINGS);
     }
   },
-  plugins: [ createPersistSettingsPlugin() ]
+  plugins: [ createPersistSettingsPlugin(), createPersistGamePlugin() ]
 });

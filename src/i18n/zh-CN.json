@@ -35,9 +35,11 @@
     "resetConfirm": "确定将所有设置恢复为默认值？",
     "resetDone": "已恢复默认设置。",
     "tip": "提示：可在“设置”中调整特效质量与屏幕震动。",
-    "continue": "继续游戏",
-    "openSaves": "存档"
-  },
+      "continue": "继续游戏",
+      "openSaves": "存档",
+      "mode": "模式",
+      "difficulty": "难度"
+    },
   "saves": {
     "title": "存档槽",
     "empty": "还没有存档。",
