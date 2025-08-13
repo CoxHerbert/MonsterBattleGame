@@ -18,7 +18,7 @@ jobs:
     build:
         runs-on: ubuntu-latest
         env:
-            GITHUB_PAGES: 'true' # 让 Vite 的 base 动态生效
+            GITHUB_PAGES: 'true'
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -26,25 +26,22 @@ jobs:
             - name: Setup Node (pin exact to satisfy engines)
               uses: actions/setup-node@v4
               with:
-                  node-version: '20.19.0' # or '22.12.0'
+                  node-version: '20.19.0'
                   cache: npm
 
             - name: Install deps (lock-aware)
               run: |
-                  if [ -f package-lock.json ]; then
-                    npm ci
-                  else
-                    echo "No package-lock.json, using npm i"
-                    npm i
-                  fi
+                  if [ -f package-lock.json ]; then npm ci; else npm i; fi
 
+            # ⬇️ 加上 enablement: true，首次会自动开启 Pages（相当于在 Settings 里点那个开关）
             - name: Configure GitHub Pages
               uses: actions/configure-pages@v5
+              with:
+                  enablement: true
 
             - name: Build
               run: npm run build
 
-            # SPA 路由直达不 404（官方允许自定义 404 页）
             - name: SPA fallback
               run: cp dist/index.html dist/404.html || true
 
