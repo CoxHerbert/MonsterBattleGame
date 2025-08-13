@@ -39,7 +39,11 @@ export default createStore({
     setMinimapAlerts(state, v) { state.settings.minimapAlerts = v },
     setMinimapSize(state, v) { state.settings.minimapSize = v },
     setTelegraphOn(state, v) { state.settings.telegraphOn = v },
-    setEffectsQuality(state, v) { state.settings.effectsQuality = v },
-    setScreenShake(state, v) { state.settings.screenShake = v }
+    setEffectsQuality(state, v) {
+      state.settings.effectsQuality = v === 'low' ? 'low' : 'high'
+    },
+    setScreenShake(state, v) {
+      state.settings.screenShake = !!v
+    }
   }
 })
