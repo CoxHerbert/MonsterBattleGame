@@ -70,10 +70,55 @@
     "boss_tyrant": "Tyrant",
     "boss_matriarch": "Matriarch"
   },
+  "settings": {
+    "title": "Settings",
+    "audio": "Audio",
+    "volume": "Volume",
+    "muted": "Mute",
+    "bgmOn": "Background Music",
+    "minimap": "Minimap",
+    "minimapOpen": "Show Minimap",
+    "minimapSize": "Minimap Size",
+    "size": { "small": "Small", "medium": "Medium", "large": "Large" },
+    "visual": "Visual & Experience",
+    "effectsQuality": "Effects Quality",
+    "effectsQualityHigh": "High",
+    "effectsQualityLow": "Low",
+    "effectsQualityHint": "High: animated beams/particles; Low: simplified visuals.",
+    "screenShake": "Screen Shake",
+    "screenShakeHint": "Vibration when explosions occur.",
+    "saveAndExit": "Save & Exit",
+    "restart": "Restart",
+    "close": "Close",
+    "unmute": "Unmute",
+    "mute": "Mute",
+    "bgmOffTitle": "Turn off BGM",
+    "bgmOnTitle": "Turn on BGM",
+    "bgmOnLabel": "BGM On",
+    "bgmOffLabel": "BGM Off",
+    "radarOn": "Minimap On",
+    "radarOff": "Minimap Off"
+  },
   "fx": {
     "poison": "Poison",
     "burn": "Burn",
     "slow": "Slow",
     "shock": "Shock"
+  },
+  "game": {
+    "buff": {
+      "speed": "Speed",
+      "spread": "Spread",
+      "burn": "Burn",
+      "pierce": "Pierce",
+      "bounce": "Bounce",
+      "split": "Split"
+    },
+    "augment": {
+      "atk": "Attack Up",
+      "aspd": "Attack Speed",
+      "speed": "Move Speed",
+      "hp": "Max HP"
+    }
   }
 }

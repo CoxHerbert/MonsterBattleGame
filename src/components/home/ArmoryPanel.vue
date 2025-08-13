@@ -82,6 +82,7 @@ export default {
       return Math.floor(econ.prices.weaponUpgradeBase * Math.pow(econ.prices.weaponUpgradeGrowth, lv) * mul);
     },
     skinIcon(wid, sid){
+      if(!wid) return '';
       const key = `SKIN_${wid.toUpperCase()}_${sid}`;
       return Skins[key];
     }

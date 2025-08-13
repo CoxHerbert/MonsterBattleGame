@@ -65,11 +65,12 @@ export default class WeaponSystem {
   update(dt, aimDir, isTriggerHeld){
     const cdr = this.s.player?.cdr || 0
     this.cooldown = Math.max(0, this.cooldown - dt * (1 + cdr))
+    const interval = this.s.player?.fireInterval || this.s.weapon.stats.fireInterval
     if (this.currentId==='laser'){
       if (isTriggerHeld){
         if (this.cooldown<=0){
           this.bf.fireLaser({ dir: aimDir })
-          this.cooldown = this.s.weapon.stats.fireInterval
+          this.cooldown = interval
         }
       }
       return
@@ -77,7 +78,7 @@ export default class WeaponSystem {
     if (isTriggerHeld && this.cooldown<=0){
       if (this.currentId==='mg') this.bf.fireMG({ dir: aimDir })
       if (this.currentId==='rocket') this.bf.fireRocket({ dir: aimDir })
-      this.cooldown = this.s.weapon.stats.fireInterval
+      this.cooldown = interval
     }
   }
 

@@ -89,6 +89,9 @@ import SettingsPanel from '../components/SettingsPanel.vue'
 import modes from '@/game/config/modes.config.js'
 import SaveSystem from '@/game/systems/SaveSystem.js'
 import WeaponSystem from '@/game/weapons/WeaponSystem.js'
+import { ENEMY_VFX } from '@/game/config/enemies.visuals.js'
+import BuffSystem from '@/game/systems/BuffSystem.js'
+import BulletSystem from '@/game/systems/BulletSystem.js'
 const LS_KEY = 'zombie-best-score-v1';
 
 /* ===== 内置SVG精灵（可替换为你的 PNG/SVG 地址） ===== */
@@ -131,10 +134,10 @@ function seedFrom(cx, cy, worldSeed){const s=((cx*73856093)^(cy*19349663)^worldS
 
 // 永久增益（Augments）定义
 const AUGMENTS = [
-  { id: 'atk',  name: '攻击强化',  apply(g) { g.player.damage *= 1.2; } },
-  { id: 'aspd', name: '攻速提升', apply(g) { g.player.fireInterval *= 0.9; } },
-  { id: 'speed', name: '移速提升', apply(g) { g.player.baseSpeed *= 1.1; } },
-  { id: 'hp',   name: '生命提升', apply(g) { g.player.maxHp += 20; g.player.hp += 20; } }
+  { id: 'atk',  name: '攻击强化' },
+  { id: 'aspd', name: '攻速提升' },
+  { id: 'speed', name: '移速提升' },
+  { id: 'hp',   name: '生命提升' }
 ];
 
 export default {
@@ -148,6 +151,7 @@ export default {
 
       // runtime
       running: false, paused: false, gameOver: false, lastTime: 0, accTime: 0,
+      shake: { t: 0, dur: 0, amp: 0 },
 
       // fullscreen
       isNativeFullscreen: false, isPseudoFullscreen: false,
@@ -164,7 +168,7 @@ export default {
         dir: 0,
         fireCooldown: 0,
         fireInterval: 0.12,
-        damage: 24
+        damage: 0
       },
 
       // inputs
@@ -195,7 +199,10 @@ export default {
 
       // entities
       bullets: [], zombies: [], particles: [], drops: [],
+      beamFx: { hits: [] }, // {x,y,dir,life,max}
       weaponSys: null,
+      buffSys: null,
+      bulletSys: null,
 
       // spawn
       spawnTimer: 0, spawnInterval: 1.0, wave: 1,
@@ -208,9 +215,6 @@ export default {
 
       // score
       score: 0, bestScore: 0, combo: 1, comboTimer: 0,
-
-      // buffs
-      buff: { speed: 0, spread: 0, burn: 0, pierce: 0, bounce: 0, split: 0 },
 
       // device
       isTouchDevice: false,
@@ -231,6 +235,8 @@ export default {
       // assets
       assets: { ready:false, player:null, zombie:null, elite:null, boss:null },
 
+      miniFxEnabled: this.$store.state.settings.minimapAlerts,
+
       // 小地图 / 雷达
       minimap: {
         open: true,
@@ -248,24 +254,21 @@ export default {
   },
   computed: {
     settings() { return this.$store.state.settings; },
-    activeBuffs() {
-      const list = [];
-      if (this.buff.speed > 0)  list.push({ kind: '加速', left: this.buff.speed });
-      if (this.buff.spread > 0) list.push({ kind: '散射', left: this.buff.spread });
-      if (this.buff.burn > 0)   list.push({ kind: '燃烧', left: this.buff.burn });
-      if (this.buff.pierce > 0) list.push({ kind: '穿透', left: this.buff.pierce });
-      if (this.buff.bounce > 0) list.push({ kind: '弹跳', left: this.buff.bounce });
-      if (this.buff.split > 0)  list.push({ kind: '分裂', left: this.buff.split });
-      return list;
+    activeBuffs(){
+      const t=this.$t;
+      const mapKey={
+        speed:t('game.buff.speed'),
+        spread:t('game.buff.spread'),
+        burn:t('game.buff.burn'),
+        pierce:t('game.buff.pierce'),
+        bounce:t('game.buff.bounce'),
+        split:t('game.buff.split')
+      };
+      return (this.buffSys?.getActiveTemps()||[]).map(b=>({ kind: mapKey[b.kind]||b.kind, left:b.left }));
     },
-    permanentBuffs() {
-      const nameMap = { atk: '攻击强化', aspd: '攻速提升', speed: '移速提升', hp: '生命提升' };
-      const list = [];
-      for (const k in this.permaBuffs) {
-        const lv = this.permaBuffs[k];
-        if (lv > 0) list.push({ id: k, name: nameMap[k] || k, level: lv });
-      }
-      return list;
+    permanentBuffs(){
+      const t=this.$t;
+      return (this.buffSys?.getPermanentList()||[]).map(b=>({ id:b.id, name:t(`game.augment.${b.id.replace('speedP','speed')}`), level:b.level }));
     },
     isAnyFullscreen() { return this.isNativeFullscreen || this.isPseudoFullscreen; }
   },
@@ -283,6 +286,7 @@ export default {
       if (v) this.startBgm(); else this.stopBgm();
     },
     'settings.minimapOpen'(v) { this.minimap.open = v; },
+    'settings.minimapAlerts'(v) { this.miniFxEnabled = v; },
     'settings.minimapSize'(v) { this.minimap.size = v; this.updateMinimapSize(); }
   },
   mounted() {
@@ -300,6 +304,7 @@ export default {
 
     this.minimap.open = this.settings.minimapOpen;
     this.minimap.size = this.settings.minimapSize;
+    this.miniFxEnabled = this.settings.minimapAlerts;
     this.updateMinimapSize();
 
     this.bestScore = Number(localStorage.getItem(LS_KEY) || 0);
@@ -333,6 +338,19 @@ export default {
       if (ch) this.worldSeed = ch.seed;
     }
     this.reset();
+    this.buffSys = new BuffSystem();
+    this.buffSys.setPermanent({
+      atk: this.permaBuffs.atk || 0,
+      aspd: this.permaBuffs.aspd || 0,
+      speedP: this.permaBuffs.speed || 0,
+      hp: this.permaBuffs.hp || 0
+    });
+    this.bulletSys = new BulletSystem({
+      state: this,
+      buffSys: this.buffSys,
+      sfx: { hit: this.sfxHit?.bind(this), shot: this.sfxShot?.bind(this) }
+    });
+    this.bullets = this.bulletSys.bullets;
     const meta = new SaveSystem().loadMeta();
     const inv = meta?.inventory?.weapons?.[this.player.weaponId];
     const wlv = inv?.level || 0;
@@ -399,6 +417,32 @@ export default {
       ctx.drawImage(img, -r, -r, size, size);
       ctx.restore();
       return true;
+    },
+
+    /* ===== FX 质量与开关（带默认值） ===== */
+    fxQuality(){ return (this.$store?.state?.settings?.effectsQuality) || 'high'; },
+    fxHigh(){ return this.fxQuality() !== 'low'; },
+    fxShakeEnabled(){
+      const v = this.$store?.state?.settings?.screenShake;
+      return (v === undefined || v === null) ? true : !!v;
+    },
+
+    /* ===== 屏幕震动 ===== */
+    startShake(intensity = 6, durationMs = 250){
+      if (!this.fxShakeEnabled()) return;
+      if (!this.fxHigh()) intensity *= 0.6;
+      this.shake.amp = intensity;
+      this.shake.dur = Math.max(1, durationMs);
+      this.shake.t = this.shake.dur;
+    },
+    _applyShakeTransform(){
+      if (this.shake.t <= 0) return { dx:0, dy:0 };
+      const p = this.shake.t / this.shake.dur;
+      const fall = p * p;
+      const a = this.shake.amp * fall;
+      const dx = (Math.random()*2 - 1) * a;
+      const dy = (Math.random()*2 - 1) * a;
+      return { dx, dy };
     },
 
     /* ===== Fullscreen ===== */
@@ -672,11 +716,12 @@ export default {
       this.player.baseSpeed = 220;
       this.player.speed = this.player.baseSpeed;
       this.player.hp = 100; this.player.maxHp = 100;
-      this.player.fireInterval = 0.12; this.player.damage = 24;
+      this.player.fireInterval = 0.12; this.player.damage = 0;
       this.score = 0; this.combo = 1; this.comboTimer = 0;
       this.wave = 1; this.spawnInterval = 1.0; this.spawnTimer = 0;
       this.bullets = []; this.zombies = []; this.particles = []; this.drops = [];
-      this.buff.speed = 0; this.buff.spread = 0; this.buff.burn = 0; this.buff.pierce = 0; this.buff.bounce = 0; this.buff.split = 0;
+      if (this.buffSys) this.buffSys.clearTemps();
+      if (this.bulletSys) this.bulletSys.bullets.length = 0;
       this.bossTimer = this.bossInterval; this.bossStage = 1;
       this.augmentChoices = [];
       this.permaBuffs = { atk: 0, aspd: 0, speed: 0, hp: 0 };
@@ -901,6 +946,10 @@ export default {
     },
 
     update(dt) {
+      // Shake 计时
+      if (this.shake.t > 0) this.shake.t = Math.max(0, this.shake.t - dt*1000);
+      this.updateBeamFx(dt);
+
       // 相机
       const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
       const camX = this.player.x - w / 2, camY = this.player.y - h / 2;
@@ -908,14 +957,13 @@ export default {
       // 可见障碍
       this.refreshVisibleObstacles(camX, camY, w, h);
 
-      // buffs
-      if (this.buff.speed  > 0) this.buff.speed  = Math.max(0, this.buff.speed  - dt);
-      if (this.buff.spread > 0) this.buff.spread = Math.max(0, this.buff.spread - dt);
-      if (this.buff.burn   > 0) this.buff.burn   = Math.max(0, this.buff.burn   - dt);
-      if (this.buff.pierce > 0) this.buff.pierce = Math.max(0, this.buff.pierce - dt);
-      if (this.buff.bounce > 0) this.buff.bounce = Math.max(0, this.buff.bounce - dt);
-      if (this.buff.split  > 0) this.buff.split  = Math.max(0, this.buff.split  - dt);
-      this.player.speed = this.player.baseSpeed * (this.buff.speed > 0 ? 1.5 : 1.0);
+      this.buffSys.tick(dt);
+      const snap = this.buffSys.getSnapshot();
+      this.player.speed = this.player.baseSpeed * (snap.moveMul || 1);
+      this.player.fireInterval = Math.max(0.03, this.weapon.stats.fireInterval * (snap.fireIntervalMul || 1));
+      this.player.maxHp = 100 + (snap.maxHpAdd || 0);
+      this.player.hp = Math.min(this.player.hp, this.player.maxHp);
+      this.bulletSys.update(dt);
 
       // 移动
       let mx = 0, my = 0;
@@ -950,79 +998,6 @@ export default {
       const shouldFire = this.autoFire || this.mouse.down || this.gp.fire || touchFire;
       this.weaponSys.update(dt, this.player.dir, shouldFire);
 
-      // 子弹
-      for (let i = this.bullets.length - 1; i >= 0; i--) {
-        const b = this.bullets[i];
-
-        if (b.type === 'beam' && b.from === 'player') {
-          b.life -= dt;
-          if (b.life <= 0) { this.bullets.splice(i,1); continue; }
-          b._tick = (b._tick || 0) - dt;
-          if (b._tick <= 0) {
-            b._tick = b.tick;
-            const cos = Math.cos(b.dir), sin = Math.sin(b.dir);
-            for (const z of this.zombies) {
-              const dx = z.x - b.x, dy = z.y - b.y;
-              const proj = dx*cos + dy*sin;
-              if (proj < -z.r || proj > b.range + z.r) continue;
-              const px = b.x + cos * Math.max(0, Math.min(b.range, proj));
-              const py = b.y + sin * Math.max(0, Math.min(b.range, proj));
-              const dist = Math.hypot(z.x - px, z.y - py);
-              if (dist <= z.r + b.width) {
-                z.hp -= b.tickDmg;
-              }
-            }
-          }
-          continue;
-        }
-
-        b.x += Math.cos(b.dir || 0) * (b.speed || 0) * dt;
-        b.y += Math.sin(b.dir || 0) * (b.speed || 0) * dt;
-        b.life -= dt;
-
-        if (this.pointHitObstacle(b.x, b.y)) {
-          b.life = 0;
-        }
-
-        if (b.from === 'player') {
-          for (const z of this.zombies) {
-            if (this.circleHit(b.x, b.y, 3, z.x, z.y, z.r)) {
-              if (b.explodeOnExpire) {
-                b.life = 0;
-              } else {
-                z.hp -= b.dmg || 1;
-                b.life = 0;
-              }
-              break;
-            }
-          }
-        } else if (b.from === 'enemy' && this.circleHit(b.x, b.y, 3, this.player.x, this.player.y, this.player.r)) {
-          this.player.hp -= b.dmg;
-          b.life = 0;
-        }
-
-        if (b.explodeOnExpire && b.life <= 0) {
-          const radius = b.explosion?.radius || 96;
-          const falloff = b.explosion?.falloff ?? 0.5;
-          for (const z of this.zombies) {
-            const dx = z.x - b.x, dy = z.y - b.y;
-            const dist = Math.hypot(dx, dy);
-            if (dist <= radius) {
-              const ratio = 1 - dist / radius;
-              const dealt = (b.dmg || 0) * (falloff + (1 - falloff) * ratio);
-              z.hp -= dealt;
-            }
-          }
-          const pal = this.skinPalette();
-          this.makeDeathBurst?.(b.x, b.y, pal.explosion || '#ffcf6b');
-          this.sfxHit();
-          this.bullets.splice(i,1);
-          continue;
-        }
-
-        if (b.life <= 0) { this.bullets.splice(i,1); }
-      }
-
       // Boss刷新
       this.bossTimer -= dt;
       if (this.bossTimer <= 0) {
@@ -1043,6 +1018,7 @@ export default {
       // 僵尸
       for (let i = this.zombies.length - 1; i >= 0; i--) {
         const z = this.zombies[i];
+        if (z.hp <= 0) { this.zombies.splice(i, 1); this.onKill(z); continue; }
         if (z.burnTime > 0) { z.burnTime -= dt; z.hp -= z.burnDps * dt; if (z.hp <= 0) { this.zombies.splice(i, 1); this.onKill(z); continue; } }
         if (z.invuln > 0) z.invuln -= dt;
         if (z.elite) { z.dashCd -= dt; if (z.dashCd <= 0) { z.dashing = true; z.dashTime = 0.45; z.dashCd = 3 + Math.random() * 1.5; } if (z.dashing) { z.dashTime -= dt; if (z.dashTime <= 0) z.dashing = false; } }
@@ -1083,25 +1059,6 @@ export default {
           }
         }
 
-        // 子弹命中
-        for (let j = this.bullets.length - 1; j >= 0; j--) {
-          const b = this.bullets[j];
-          if (b.from !== 'player') continue;
-          if (this.circleHit(b.x, b.y, 3, z.x, z.y, z.r)) {
-            if (z.invuln > 0) continue;
-            z.hp -= b.dmg;
-            if (b.burn) { z.burnTime = 3; z.burnDps = 6; }
-            if (b.split && !b.fromSplit) {
-              for (const s of [-0.4, 0.4]) {
-                this.bullets.push({ x: z.x, y: z.y, dir: b.dir + s, speed: 560, dmg: b.dmg * 0.5, life: 0.6, from: 'player', pierce: 0, bounce: 0, burn: b.burn, split: false, fromSplit: true });
-              }
-            }
-            this.makeHitParticles(z.x, z.y, '#6cf'); this.sfxHit();
-            if (z.hp <= 0) { this.zombies.splice(i, 1); this.onKill(z); }
-            if (b.pierce && b.pierce > 0) { b.pierce--; } else { this.bullets.splice(j, 1); }
-            break;
-          }
-        }
         // 咬玩家
         if (this.circleHit(this.player.x, this.player.y, this.player.r, z.x, z.y, z.r)) {
           this.player.hp -= z.dmg * dt; const push = 50 * dt; z.x -= Math.cos(dir) * push; z.y -= Math.sin(dir) * push;
@@ -1172,8 +1129,13 @@ export default {
       ctx.globalAlpha = 1;
 
       ctx.clearRect(0, 0, screenW, screenH);
-      ctx.save(); ctx.translate(-camX, -camY);
+      const { dx:shx, dy:shy } = this._applyShakeTransform();
+      ctx.save(); ctx.translate(-camX + shx, -camY + shy);
       this.drawTerrain(camX, camY, screenW, screenH);
+      /* ★ 在敌人与玩家之前绘制地面预警（Telegraph 在地面层） */
+      for (const z of this.zombies) {
+        this.drawGroundTelegraphFor(z, ctx, 0, 0);
+      }
 
       // 掉落
       for (const d of this.drops) {
@@ -1219,33 +1181,50 @@ export default {
         ctx.globalAlpha = 1;
       }
 
-      // —— 激光（beam）按皮肤配色 —— //
+      // —— 激光（带纹理滚动 + 外发光，按质量调整） —— //
       for (const b of this.bullets) {
         if (b.type !== 'beam') continue;
-        const pal = this.skinPalette();
+        const pal = this.skinPalette ? this.skinPalette() : { beamGlow:'#d6b3ff', beamCore:'#cfa5ff' };
         const ex = b.x + Math.cos(b.dir)*b.range;
         const ey = b.y + Math.sin(b.dir)*b.range;
 
         // 外发光层
         ctx.save();
-        ctx.globalAlpha = 0.35;
+        ctx.globalAlpha = this.fxHigh()? 0.32 : 0.22;
         ctx.strokeStyle = pal.beamGlow || '#d6b3ff';
-        ctx.lineWidth = Math.max(1, (b.width||6) * 2.4);
+        ctx.lineWidth = Math.max(1, (b.width||6) * (this.fxHigh()? 2.4 : 1.6));
         ctx.beginPath();
         ctx.moveTo(b.x, b.y);
         ctx.lineTo(ex, ey);
         ctx.stroke();
+        ctx.restore();
 
-        // 核心线
+        // 纹理滚动（低配关闭虚线，仅画实线）
+        ctx.save();
         ctx.globalAlpha = 0.95;
         ctx.strokeStyle = pal.beamCore || '#cfa5ff';
         ctx.lineWidth = b.width || 6;
+
+        if (this.fxHigh()){
+          const dash = (b.width||6) * 2.0;
+          ctx.setLineDash([dash, dash]);
+          ctx.lineDashOffset = - (performance.now() * 0.25);
+        } else {
+          ctx.setLineDash([]);
+        }
+
         ctx.beginPath();
         ctx.moveTo(b.x, b.y);
         ctx.lineTo(ex, ey);
         ctx.stroke();
-
         ctx.restore();
+      }
+
+      // —— 激光命中电弧 —— //
+      for (const h of this.beamFx.hits){
+        const k = Math.max(0, h.life / h.max);
+        const alpha = 0.35 + 0.55 * k;
+        this.drawElectricBurst(ctx, h.x, h.y, { bolts: 3, radius: 22 + 16*(1-k), jitter: 8, alpha });
       }
 
       // 僵尸（贴图 + 血条 + 数值HP）
@@ -1371,6 +1350,236 @@ export default {
       return { fill, stroke, strokeWidth, r, alpha };
     },
 
+    /* ===== VFX 统一读表工具 ===== */
+    vfxTypeOf(z){
+      return z.type || (z.boss ? (z.bossId || 'boss') : 'zombie');
+    },
+    vfxAlertCfg(key, type){
+      const base = ENEMY_VFX?.alerts?.[key];
+      const ov   = ENEMY_VFX?.types?.[type]?.alerts?.[key];
+      return base ? { ...base, ...(ov||{}) } : null;
+    },
+    vfxWorldCfg(type){
+      const d = ENEMY_VFX?.world?.defaults || {};
+      const o = ENEMY_VFX?.types?.[type]?.world || {};
+      return { ...d, ...o };
+    },
+    pulse01(speed){ return 0.5 + 0.5 * Math.sin((performance.now()/1000) * (speed || 8)); },
+    /* 画扇形（世界坐标） */
+    drawSector(ctx, cx, cy, radius, angCenter, angHalf, fill, alpha=0.35){
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius, angCenter - angHalf, angCenter + angHalf, false);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    },
+    /* 画空心圆（世界坐标） */
+    drawRing(ctx, cx, cy, radius, color, width=2, alpha=0.8){
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    },
+    /* ===== Telegraph 主函数（为每只敌人绘制） ===== */
+    drawGroundTelegraphFor(z, ctx, camX, camY){
+      if (this.$store && this.$store.state?.settings?.telegraphOn === false) return;
+
+      const type = this.vfxTypeOf(z);
+      const C = this.vfxWorldCfg(type);
+
+      const x = z.x - camX, y = z.y - camY;
+
+      const pulse = (cfg)=> {
+        const p = this.pulse01(cfg.speed);
+        const [a0,a1] = cfg.alpha || [0.5, 1.0];
+        return { p, alpha: a0 + (a1-a0)*p };
+      };
+      const drawRing = (r, color, w=2, a=0.8)=>{ this.drawRing(ctx, x, y, r, color, w, a); };
+
+      // 1) 脚下基础圈
+      const baseRadius = (z.r || 12) * (C.ringRadiusScale || 1.4);
+      drawRing(baseRadius, z.elite ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.7)', 1, z.elite ? 0.22 : 0.12);
+
+      // 2) 冲锋
+      if (z.dashing){
+        const cfg = this.vfxAlertCfg('charge', type);
+        if (cfg){
+          const t = pulse(cfg);
+          const rr = (z.r||12) * (C.chargeRadiusScale || 1.8) * (1 + (cfg.scale||0) * t.p);
+          drawRing(rr, cfg.color, cfg.line, t.alpha);
+        }
+      }
+
+      // 3) 远程/喷吐前摇
+      if (z.shotCd !== undefined){
+        const key = (z.ai === 'spit') ? 'spit' : 'shoot';
+        const cfg = this.vfxAlertCfg(key, type);
+        if (cfg && z.shotCd < (cfg.pre||0)){
+          const t = pulse(cfg);
+          const baseR = (key==='spit') ? (C.spitRadius||90) : (C.shootRadius||70);
+          drawRing(baseR * (1 + (cfg.scale||0) * t.p), cfg.color, cfg.line, t.alpha);
+        }
+      }
+
+      // 4) 召唤前摇
+      if (z.summonCd !== undefined){
+        const cfg = this.vfxAlertCfg('summon', type);
+        if (cfg && z.summonCd < (cfg.pre||0)){
+          const t = pulse(cfg);
+          drawRing((C.summonRadius||110) * (1 + (cfg.scale||0) * t.p), cfg.color, cfg.line, t.alpha);
+        }
+      }
+
+      // 5) 自爆
+      if (z.cfg && z.cfg.boom){
+        const cfg = this.vfxAlertCfg('suicide', type);
+        if (cfg){
+          const R0 = (z.cfg.boom.radius || 96) + (C.suicideRadiusExtra||0);
+          const d = Math.hypot(this.player.x - z.x, this.player.y - z.y);
+          if (d <= R0 * (cfg.radiusFactor || 1.0)){
+            const t = pulse(cfg);
+            drawRing(R0 * (1 + (cfg.scale||0) * t.p), cfg.color, cfg.line, t.alpha);
+          } else {
+            drawRing(R0, cfg.color, 1.5, 0.25);
+          }
+        }
+      }
+
+      // 6) Boss
+      if (z.boss){
+        const cone = this.vfxAlertCfg('boss_cone', type);
+        if (cone && z._coneCd !== undefined && z._coneCd < (cone.pre||0)){
+          const t = pulse(cone);
+          const ang = Math.atan2(this.player.y - z.y, this.player.x - z.x);
+          const half = ((C.coneAngleDeg || 70) * Math.PI / 180) / 2;
+          const R = (C.coneRange || 420) * (1 + (cone.scale||0) * t.p);
+          this.drawSector(ctx, x, y, R, ang, half, cone.color, t.alpha);
+          this.drawRing(ctx, x, y, R, cone.color, 2, 0.5);
+        }
+        const nova = this.vfxAlertCfg('boss_nova', type);
+        if (nova && z._novaCd !== undefined && z._novaCd < (nova.pre||0)){
+          const t = pulse(nova);
+          const R = (C.novaRadius || 220) * (1 + (nova.scale||0) * t.p);
+          drawRing(R, nova.color, nova.line, t.alpha);
+        }
+      }
+    },
+
+    /* 命中 FX：记录命中点，供渲染层绘制电弧/火花 */
+    addBeamHit(x, y, dir){
+      if (!this.fxHigh() && Math.random() < 0.6) return;
+      if (this.beamFx.hits.length > (this.fxHigh()? 50 : 20)) this.beamFx.hits.shift();
+      const life = this.fxHigh()? 0.12 : 0.08;
+      this.beamFx.hits.push({ x, y, dir: dir || 0, life, max: life });
+      if (this.fxHigh()) this.makeHitParticles(x, y, (this.skinPalette?.().beamGlow || '#bde0ff'));
+    },
+
+    /* 命中 FX 的生命周期 */
+    updateBeamFx(dt){
+      for (let i=this.beamFx.hits.length-1; i>=0; i--){
+        const h = this.beamFx.hits[i];
+        h.life -= dt;
+        if (h.life <= 0) this.beamFx.hits.splice(i,1);
+      }
+    },
+
+    /* 绘制电弧簇（短小抖动的折线） */
+    drawElectricBurst(ctx, x, y, { bolts=3, radius=22, jitter=10, alpha=0.9 } = {}){
+      const pal = this.skinPalette ? this.skinPalette() : {};
+      const cCore = pal.beamCore || '#cfa5ff';
+      const cAlt1 = pal.beamGlow || '#d6b3ff';
+      const cAlt2 = '#eaf7ff';
+
+      if (!this.fxHigh()){ bolts = Math.max(1, Math.floor(bolts*0.6)); radius *= 0.7; jitter *= 0.7; alpha *= 0.8; }
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      for (let b=0; b<bolts; b++){
+        const segs = this.fxHigh() ? (4 + Math.floor(Math.random()*3)) : (3 + Math.floor(Math.random()*2));
+        let px = x, py = y;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        for (let s=0; s<segs; s++){
+          const ang = Math.random() * Math.PI * 2;
+          const len = radius / segs + (Math.random()-0.5)*2;
+          const nx = px + Math.cos(ang)*len + (Math.random()-0.5)*jitter;
+          const ny = py + Math.sin(ang)*len + (Math.random()-0.5)*jitter;
+
+          ctx.lineWidth = 1 + Math.max(0, (segs - s)) * 0.3;
+          ctx.strokeStyle = (s===0) ? cAlt2 : (Math.random()<0.5 ? cAlt1 : cCore);
+
+          ctx.lineTo(nx, ny);
+          px = nx; py = ny;
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    },
+
+    /* ===== Minimap Alert（读取 ENEMY_VFX） ===== */
+    enemyMinimapAlert(z){
+      if (this.miniFxEnabled === false) return null;
+      const type = this.vfxTypeOf(z);
+      const pulse = (cfg)=> {
+        const p = this.pulse01(cfg.speed);
+        const [a0,a1] = cfg.alpha || [0.5, 1.0];
+        return { scale:1 + (cfg.scale||0)*p, alpha: a0 + (a1-a0)*p };
+      };
+
+      // 1) 冲锋中
+      if (z.dashing){
+        const cfg = this.vfxAlertCfg('charge', type);
+        if (cfg){ const t = pulse(cfg); return { color:cfg.color, width:cfg.line, scale:t.scale, alpha:t.alpha }; }
+      }
+      // 2) 远程/喷吐前摇
+      if (z.shotCd !== undefined){
+        const key = (z.ai === 'spit') ? 'spit' : 'shoot';
+        const cfg = this.vfxAlertCfg(key, type);
+        if (cfg && z.shotCd < (cfg.pre||0)){
+          const t = pulse(cfg); return { color:cfg.color, width:cfg.line, scale:t.scale, alpha:t.alpha };
+        }
+      }
+      // 3) 召唤前摇
+      if (z.summonCd !== undefined){
+        const cfg = this.vfxAlertCfg('summon', type);
+        if (cfg && z.summonCd < (cfg.pre||0)){
+          const t = pulse(cfg); return { color:cfg.color, width:cfg.line, scale:t.scale, alpha:t.alpha };
+        }
+      }
+      // 4) 自爆警戒
+      if (z.cfg && z.cfg.boom){
+        const cfg = this.vfxAlertCfg('suicide', type);
+        if (cfg){
+          const factor = cfg.radiusFactor || 1.0;
+          const d = Math.hypot(this.player.x - z.x, this.player.y - z.y);
+          const R = (z.cfg.boom.radius || 96) * factor;
+          if (d <= R){ const t = pulse(cfg); return { color:cfg.color, width:cfg.line, scale:t.scale, alpha:t.alpha }; }
+        }
+      }
+      // 5) Boss
+      if (z.boss){
+        const cone = this.vfxAlertCfg('boss_cone', type);
+        if (cone && z._coneCd !== undefined && z._coneCd < (cone.pre||0)){
+          const t = pulse(cone); return { color:cone.color, width:cone.line, scale:t.scale, alpha:t.alpha };
+        }
+        const nova = this.vfxAlertCfg('boss_nova', type);
+        if (nova && z._novaCd !== undefined && z._novaCd < (nova.pre||0)){
+          const t = pulse(nova); return { color:nova.color, width:nova.line, scale:t.scale, alpha:t.alpha };
+        }
+      }
+      return null;
+    },
+
     getMinimapRect() {
       const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
       const mm = this.minimap;
@@ -1432,14 +1641,14 @@ export default {
         }
       }
 
-      // 怪物点（按类型/精英/Boss 着色）
+      // 怪物点（按类型/精英/Boss 着色 + 状态闪烁）
       const rMax = Math.min(w, h) / 2 - 8;
       for (const z of this.zombies) {
         const dx = (z.x - this.player.x) * scale;
         const dy = (z.y - this.player.y) * scale;
         let px = cx + dx, py = cy + dy;
 
-        // 边缘夹紧：超出雷达范围的怪贴边显示
+        // 边缘夹紧
         const dist = Math.hypot(dx, dy);
         if (dist > rMax) { const k = rMax / dist; px = cx + dx * k; py = cy + dy * k; }
 
@@ -1463,7 +1672,19 @@ export default {
         ctx.fill();
         ctx.globalAlpha = 1;
 
-        // Boss 文字标识（保持你原有的 “B”）
+        // —— 战斗状态：警戒 Ring（闪烁/放大） —— //
+        const alert = this.enemyMinimapAlert(z);
+        if (alert){
+          ctx.beginPath();
+          ctx.globalAlpha = alert.alpha;
+          ctx.strokeStyle = alert.color;
+          ctx.lineWidth = alert.width;
+          ctx.arc(px, py, sty.r * (alert.scale || 1.0) + 1.5, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+
+        // Boss 标识
         if (z.boss){
           ctx.fillStyle = '#fff';
           ctx.font = '8px ui-sans-serif,system-ui';
@@ -1559,8 +1780,13 @@ export default {
       return opts;
     },
     pickAugment(a) {
-      a.apply(this);
       this.permaBuffs[a.id]++;
+      this.buffSys.setPermanent({
+        atk: this.permaBuffs.atk,
+        aspd: this.permaBuffs.aspd,
+        speedP: this.permaBuffs.speed,
+        hp: this.permaBuffs.hp
+      });
       this.augmentChoices = [];
       this.paused = false;
       this.enrageEnemies();
@@ -1586,13 +1812,27 @@ export default {
       const cfg = map[type]; this.drops.push({ type, x, y, drawY:y, r:13, life:10, bob:0, icon:cfg.icon, color:cfg.color });
     },
     applyDrop(type) {
-      if (type==='heal') this.player.hp = Math.min(this.player.maxHp, this.player.hp + 35);
-      if (type==='speed') this.buff.speed = Math.max(this.buff.speed, 8);
-      if (type==='spread') this.buff.spread = Math.max(this.buff.spread, 10);
-      if (type==='burn') this.buff.burn = Math.max(this.buff.burn, 10);
-      if (type==='pierce') this.buff.pierce = Math.max(this.buff.pierce, 10);
-      if (type==='bounce') this.buff.bounce = Math.max(this.buff.bounce, 10);
-      if (type==='split') this.buff.split = Math.max(this.buff.split, 10);
+      if (type==='heal') {
+        this.player.hp = Math.min(this.player.maxHp, this.player.hp + 35);
+      } else {
+        this.buffSys.addTemp(type);
+      }
+    },
+    fireLaser(){
+      const p = this.player;
+      const dir = p.dir;
+      const x = p.x + Math.cos(dir) * (p.r + 12);
+      const y = p.y + Math.sin(dir) * (p.r + 12);
+      this.bulletSys.emitBeam({
+        x, y, dir,
+        range: 560,
+        width: 8,
+        dps: Math.max(10, Math.floor((this.player.damage||24) * 0.9)),
+        life: 0.5,
+        from: 'player'
+      });
+      this.makeMuzzleFlash(x, y);
+      this.sfxShot?.();
     },
     findAutoAimTarget(range) { let best=null, bestD2=Infinity, px=this.player.x, py=this.player.y; for (const z of this.zombies){ const dx=z.x-px, dy=z.y-py, d2=dx*dx+dy*dy; if(d2<=range*range && d2<bestD2){best=z; bestD2=d2;}} return best; },
 

@@ -3,7 +3,7 @@
     <!-- 武器购买区域（与之前一致） -->
     <div class="row" v-for="w in list" :key="'w-'+w.id">
       <div class="left">
-        <img :src="weaponIcons[w.id]" :alt="w.name" />
+        <img :src="skinIcon(w.id, equippedSkinOf(w.id))" :alt="w.name" />
         <div class="info">
           <div class="name">{{ w.name }}</div>
           <div class="desc">{{ w.desc }}</div>
@@ -43,22 +43,22 @@
 
 <script>
 import cfg from '@/game/config/weapons.config.js'
-import * as WIcons from '@/assets/icons/weapons.js'
 import * as Skins from '@/assets/icons/skins.js'
 export default {
   name:'ShopPanel',
   props:{ gold:Number, prices:Object, inventory:Object },
   emits:['buy','buy-skin'],
   data(){ return {
-    list:[cfg.mg, cfg.rocket, cfg.laser],
-    weaponIcons:{ mg:WIcons.ICON_MG, rocket:WIcons.ICON_ROCKET, laser:WIcons.ICON_LASER }
+    list:[cfg.mg, cfg.rocket, cfg.laser]
   }},
   methods:{
     isOwned(id){ return !!(this.inventory?.weapons?.[id]?.owned); },
     hasSkin(id, sid){ return !!(this.inventory?.weapons?.[id]?.skins?.owned?.includes(sid)); },
     buyWeapon(id){ const price = this.prices.weapon[id] || 0; this.$emit('buy', { weaponId:id, price }); },
     buySkin(id, sid){ this.$emit('buy-skin', { weaponId:id, skinId:sid }); },
+    equippedSkinOf(id){ return this.inventory?.weapons?.[id]?.skins?.equipped || 'default'; },
     skinIcon(wid, sid){
+      if(!wid) return '';
       const key = `SKIN_${wid.toUpperCase()}_${sid}`;
       return Skins[key];
     }

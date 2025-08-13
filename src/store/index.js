@@ -15,8 +15,11 @@ export default createStore({
       muted,
       bgmOn: bgmSaved === null ? true : bgmSaved === '1',
       minimapOpen: true,
-
-      minimapSize: 'medium'
+      minimapAlerts: true,
+      minimapSize: 'medium',
+      telegraphOn: true,
+      effectsQuality: 'high',
+      screenShake: true
     }
   }),
   mutations: {
@@ -33,7 +36,10 @@ export default createStore({
       localStorage.setItem(BGM_KEY, v ? '1' : '0')
     },
     setMinimapOpen(state, v) { state.settings.minimapOpen = v },
-
-    setMinimapSize(state, v) { state.settings.minimapSize = v }
+    setMinimapAlerts(state, v) { state.settings.minimapAlerts = v },
+    setMinimapSize(state, v) { state.settings.minimapSize = v },
+    setTelegraphOn(state, v) { state.settings.telegraphOn = v },
+    setEffectsQuality(state, v) { state.settings.effectsQuality = v },
+    setScreenShake(state, v) { state.settings.screenShake = v }
   }
 })
