@@ -1,21 +1,17 @@
 :root {
-  /* 背景与分层 */
-  --bg: hsl(220 20% 98%);         /* 页面主背景：非常浅的中性灰 */
-  --bg-elev: hsl(220 16% 96%);    /* 轻度抬升背景 */
-  --panel: hsl(220 14% 94%);      /* 卡片/面板背景，略深一点点 */
+  --bg: hsl(220 20% 98%);
+  --bg-elev: hsl(220 16% 96%);
+  --panel: hsl(220 14% 94%);
   --border: hsl(220 14% 88%);
   --shadow: 0 2px 12px rgba(0,0,0,.06);
 
-  /* 文字层级 */
-  --text-1: hsl(220 28% 20%);     /* 主文字（高可读） */
-  --text-2: hsl(220 12% 40%);     /* 次级文字 */
-  --text-3: hsl(220 10% 55%);     /* 说明/占位 */
+  --text-1: hsl(220 28% 20%);
+  --text-2: hsl(220 12% 40%);
+  --text-3: hsl(220 10% 55%);
 
-  /* 轻度强调色：尽量克制，不喧宾夺主 */
   --accent: hsl(210 80% 46%);
   --accent-soft: hsl(210 80% 96%);
 
-  /* 组件半径与间距 */
   --radius-xl: 16px;
   --radius-lg: 12px;
   --radius-md: 10px;
@@ -25,8 +21,6 @@
   --space-3: 1rem;
   --space-4: 1.5rem;
 }
-
-/* 暗色模式（可按系统或用户开关切换 .dark 在 <html> 或 <body> 上） */
 .dark {
   --bg: hsl(220 16% 9%);
   --bg-elev: hsl(220 14% 12%);
@@ -41,22 +35,11 @@
   --accent: hsl(210 80% 62%);
   --accent-soft: hsl(210 30% 18%);
 }
-
-/* 全局基础样式（不突兀） */
 html, body, #app {
   height: 100%;
   background: var(--bg);
   color: var(--text-1);
 }
-
-* {
-  box-sizing: border-box;
-}
-
-a {
-  color: var(--accent);
-  text-decoration: none;
-}
-a:hover {
-  text-decoration: underline;
-}
+* { box-sizing: border-box; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
