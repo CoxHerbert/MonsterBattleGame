@@ -92,6 +92,7 @@ import WeaponSystem from '@/game/weapons/WeaponSystem.js'
 import { ENEMY_VFX } from '@/game/config/enemies.visuals.js'
 import BuffSystem from '@/game/systems/BuffSystem.js'
 import BulletSystem from '@/game/systems/BulletSystem.js'
+import { getDifficultyProfile } from '@/game/config/difficulty.config.js'
 const LS_KEY = 'zombie-best-score-v1';
 
 /* ===== 内置SVG精灵（可替换为你的 PNG/SVG 地址） ===== */
@@ -212,6 +213,11 @@ export default {
       permaBuffs: { atk: 0, aspd: 0, speed: 0, hp: 0 },
       spawnAfterChoice: false,
       enemyPower: 1,
+      base: {
+        spawnInterval: 1.0,
+        bossInterval: 180
+      },
+      diffProfile: null,
 
       // score
       score: 0, bestScore: 0, combo: 1, comboTimer: 0,
@@ -270,7 +276,13 @@ export default {
       const t=this.$t;
       return (this.buffSys?.getPermanentList()||[]).map(b=>({ id:b.id, name:t(`game.augment.${b.id.replace('speedP','speed')}`), level:b.level }));
     },
-    isAnyFullscreen() { return this.isNativeFullscreen || this.isPseudoFullscreen; }
+    isAnyFullscreen() { return this.isNativeFullscreen || this.isPseudoFullscreen; },
+    gameMeta(){
+      return {
+        mode: this.$store?.state?.game?.mode || (this.$route?.query?.mode) || 'endless',
+        difficulty: this.$store?.state?.game?.difficulty || (this.$route?.query?.difficulty) || 'normal'
+      };
+    }
   },
   watch: {
     'settings.volume'(v) {
@@ -287,7 +299,9 @@ export default {
     },
     'settings.minimapOpen'(v) { this.minimap.open = v; },
     'settings.minimapAlerts'(v) { this.miniFxEnabled = v; },
-    'settings.minimapSize'(v) { this.minimap.size = v; this.updateMinimapSize(); }
+    'settings.minimapSize'(v) { this.minimap.size = v; this.updateMinimapSize(); },
+    '$store.state.game.mode'(){ this.applyDifficulty(); },
+    '$store.state.game.difficulty'(){ this.applyDifficulty(); }
   },
   mounted() {
     // touch check
@@ -367,6 +381,7 @@ export default {
     }
     const saveId = q.save;
     if (saveId) this.loadSave(saveId);
+    this.applyDifficulty();
 
     // load sprites & run
     this.loadSprites().then(() => {
@@ -417,6 +432,17 @@ export default {
       ctx.drawImage(img, -r, -r, size, size);
       ctx.restore();
       return true;
+    },
+
+    applyDifficulty(){
+      this.diffProfile = getDifficultyProfile(this.gameMeta);
+      const dp = this.diffProfile;
+      this.bossInterval = Math.round(this.base.bossInterval * (dp.boss?.intervalMul || 1.0));
+      this.bossTimer = this.bossInterval;
+      this.spawnInterval = Math.max(0.3, this.base.spawnInterval / (dp.spawn?.rateMul || 1.0));
+      this.spawnTimer = this.spawnInterval;
+      this.player.baseSpeed = Math.round(220 * (dp.player?.moveMul || 1.0));
+      this.player.speed = this.player.baseSpeed;
     },
 
     /* ===== FX 质量与开关（带默认值） ===== */
@@ -718,10 +744,11 @@ export default {
       this.player.hp = 100; this.player.maxHp = 100;
       this.player.fireInterval = 0.12; this.player.damage = 0;
       this.score = 0; this.combo = 1; this.comboTimer = 0;
-      this.wave = 1; this.spawnInterval = 1.0; this.spawnTimer = 0;
+      this.wave = 1; this.spawnInterval = this.base.spawnInterval; this.spawnTimer = 0;
       this.bullets = []; this.zombies = []; this.particles = []; this.drops = [];
       if (this.buffSys) this.buffSys.clearTemps();
       if (this.bulletSys) this.bulletSys.bullets.length = 0;
+      this.bossInterval = this.base.bossInterval;
       this.bossTimer = this.bossInterval; this.bossStage = 1;
       this.augmentChoices = [];
       this.permaBuffs = { atk: 0, aspd: 0, speed: 0, hp: 0 };
@@ -731,6 +758,7 @@ export default {
       this.touch.right.active = false; this.touch.right.id = -1;
       this.autoAim.highlight = null;
       this.chunks.clear(); this.visibleObstacles = [];
+      this.applyDifficulty();
     },
     restart() {
       this.reset();
@@ -739,9 +767,23 @@ export default {
 
     saveAndExit() {
       const saves = JSON.parse(localStorage.getItem('saves') || '[]');
+
+      // —— 自动命名（YYYY-MM-DD HH:mm）——
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      const autoName = this.$t ? this.$t('saves.autoName', { time: stamp }) : `Save ${stamp}`;
+
+      // —— 从 store/路由兜底读取 gameMode & difficulty ——
+      const gameMode = (this.$store?.state?.game?.mode) || (this.$route?.query?.mode) || 'endless';
+      const difficulty = (this.$store?.state?.game?.difficulty) || (this.$route?.query?.difficulty) || 'normal';
+
       const id = Date.now();
       saves.push({
         id,
+        name: autoName,
+        difficulty,
+        gameMode,
         state: {
           player: { x: this.player.x, y: this.player.y, hp: this.player.hp },
           wave: this.wave,
@@ -751,6 +793,7 @@ export default {
         },
         time: Date.now()
       });
+
       localStorage.setItem('saves', JSON.stringify(saves));
       this.$router.push('/');
     },
@@ -1061,7 +1104,8 @@ export default {
 
         // 咬玩家
         if (this.circleHit(this.player.x, this.player.y, this.player.r, z.x, z.y, z.r)) {
-          this.player.hp -= z.dmg * dt; const push = 50 * dt; z.x -= Math.cos(dir) * push; z.y -= Math.sin(dir) * push;
+          const takenMul = (this.diffProfile?.player?.takenMul) || 1.0;
+          this.player.hp -= z.dmg * takenMul * dt; const push = 50 * dt; z.x -= Math.cos(dir) * push; z.y -= Math.sin(dir) * push;
         }
 
         // 太远清理
@@ -1721,10 +1765,14 @@ export default {
         if (this.pointHitObstacle(x, y)) continue;
         const eliteChance = Math.min(0.18, 0.05 + this.wave * 0.012); const elite = Math.random() < eliteChance;
         const base = 1 + this.wave * 0.12; const zr = elite ? 16 : (12 + Math.random() * 10);
+        const hp0   = (elite ? 150 : 45) * base * (0.9 + Math.random() * 0.6);
+        const spd0  = ((elite ? 70 : 60) + Math.random() * 30 + this.wave * 2);
+        const dmg0  = ((elite ? 16 : 12) + this.wave * 0.6);
+        const dp = this.diffProfile || {};
         const power = this.enemyPower;
-        const hp = (elite ? 150 : 45) * base * (0.9 + Math.random() * 0.6) * power;
-        const speed = ((elite ? 70 : 60) + Math.random() * 30 + this.wave * 2) * power;
-        const dmg = ((elite ? 16 : 12) + this.wave * 0.6) * power;
+        const hp = hp0 * (dp.enemy?.hpMul || 1.0) * power;
+        const speed = spd0 * (dp.enemy?.speedMul || 1.0) * power;
+        const dmg = dmg0 * (dp.enemy?.dmgMul || 1.0) * power;
         const hue = elite ? 12 + Math.random() * 24 : 100 + Math.random() * 160;
         const color = elite ? `hsl(${hue} 80% 55%)` : `hsl(${hue} 60% 55%)`;
         const ghost = Math.random() < 0.1;
@@ -1739,24 +1787,29 @@ export default {
       const stage = this.bossStage;
       const ang = Math.random() * Math.PI * 2; const r = 600 + Math.random() * 200;
       const x = this.player.x + Math.cos(ang) * r; const y = this.player.y + Math.sin(ang) * r;
+      const dp = this.diffProfile || {};
       const power = this.enemyPower;
-      const hp = (1200 + this.wave * 80) * (1 + (stage - 1) * 0.5) * power;
-      const speed = (60 + this.wave * 2) * (1 + (stage - 1) * 0.2) * power;
-      const dmg = (35 + this.wave * 1.5) * (1 + (stage - 1) * 0.25) * power;
-      this.zombies.push({ x, y, r: 28, hp, maxHp: hp, speed, dmg, color: '#ff4757', elite: true, boss: true, stage, dashing:false, dashCd: 2, dashTime:0, ghost:false, invuln:0, ranged:true, shotCd:1.5, burnTime:0, burnDps:0 });
+      const baseHp = (1200 + this.wave * 80) * (1 + (stage - 1) * 0.5);
+      const baseSp = (60 + this.wave * 2) * (1 + (stage - 1) * 0.2);
+      const baseDmg= (35 + this.wave * 1.5) * (1 + (stage - 1) * 0.25);
+      const hp  = baseHp  * (dp.boss?.hpMul || 1.0) * power;
+      const speed= baseSp * (dp.enemy?.speedMul || 1.0) * power;
+      const dmg = baseDmg * (dp.boss?.dmgMul || 1.0) * power;
+      this.zombies.push({ x, y, r: 28, hp, maxHp: hp, speed: speed, dmg, color: '#ff4757', elite: true, boss: true, stage, dashing:false, dashCd: 2, dashTime:0, ghost:false, invuln:0, ranged:true, shotCd:1.5, burnTime:0, burnDps:0 });
       this.bossTimer = this.bossInterval;
     },
     onKill(z) {
       if (z.boss) { this.handleBossDefeated(z.stage); return; }
       const gain = Math.round(10 + z.maxHp * 0.1);
+      const dp = this.diffProfile || {};
+      const scoreMul = dp.score?.scoreMul || 1.0;
       this.combo = Math.min(10, this.combo + 1); this.comboTimer = 2.2;
-      this.score += gain * this.combo;
+      this.score += Math.round(gain * this.combo * scoreMul);
       this.makeDeathBurst(z.x, z.y, z.color);
-      const dropRoll = Math.random(); const dropBias = z.elite ? 0.5 : 0.25;
-      if (dropRoll < dropBias) {
-        const types = ['heal','speed','spread','burn','pierce','bounce','split'];
-        const type = types[Math.floor(Math.random()*types.length)];
-        this.spawnDrop(z.x, z.y, type);
+      const dropMul = dp.loot?.dropRateMul || 1.0;
+      const dropBias = (z.elite ? 0.5 : 0.25) * dropMul;
+      if (Math.random() < dropBias) {
+        this.spawnDrop(z.x, z.y, 'heal');
       }
     },
     handleBossDefeated(stage) {
@@ -1801,33 +1854,31 @@ export default {
     },
     spawnDrop(x, y, type) {
       const map = {
-        heal:{icon:'❤️',color:'#ff9aa2'},
-        speed:{icon:'⚡',color:'#f9d56e'},
-        spread:{icon:'🔱',color:'#9ad3bc'},
-        burn:{icon:'🔥',color:'#ffb347'},
-        pierce:{icon:'🎯',color:'#c49bbb'},
-        bounce:{icon:'↩️',color:'#b6e0fe'},
-        split:{icon:'🔀',color:'#d4a5a5'}
+        heal: { icon: '❤️', color: '#ff9aa2' }
       };
-      const cfg = map[type]; this.drops.push({ type, x, y, drawY:y, r:13, life:10, bob:0, icon:cfg.icon, color:cfg.color });
+      const cfg = map[type];
+      if (cfg) {
+        this.drops.push({ type, x, y, drawY: y, r: 13, life: 10, bob: 0, icon: cfg.icon, color: cfg.color });
+      }
     },
     applyDrop(type) {
-      if (type==='heal') {
-        this.player.hp = Math.min(this.player.maxHp, this.player.hp + 35);
-      } else {
-        this.buffSys.addTemp(type);
+      const dp = this.diffProfile || {};
+      if (type === 'heal') {
+        const mul = dp.player?.healMul || 1.0;
+        this.player.hp = Math.min(this.player.maxHp, this.player.hp + Math.round(35 * mul));
       }
     },
     fireLaser(){
       const p = this.player;
       const dir = p.dir;
+      const wm = (this.diffProfile?.weapon?.beamDpsMul) || 1.0;
       const x = p.x + Math.cos(dir) * (p.r + 12);
       const y = p.y + Math.sin(dir) * (p.r + 12);
       this.bulletSys.emitBeam({
         x, y, dir,
         range: 560,
         width: 8,
-        dps: Math.max(10, Math.floor((this.player.damage||24) * 0.9)),
+        dps: Math.max(10, Math.floor((this.player.damage||24) * 0.9 * wm)),
         life: 0.5,
         from: 'player'
       });

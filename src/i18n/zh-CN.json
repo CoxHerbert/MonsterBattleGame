@@ -1,6 +1,17 @@
 {
   "home": {
-    "title": "僵尸突围",
+    "title": "欢迎回到指挥中心",
+    "subtitle": "开始你的养成与关卡挑战。我们已将临时子弹增益整合为武器与附件系统，体验更稳定可控的成长路线。",
+    "cta": { "start": "开始游戏" },
+    "theme": { "dark": "切换到暗色", "light": "切换到浅色" },
+    "panels": {
+      "progressionTitle": "养成进度",
+      "progressionDesc": "通过关卡掉落的武器与附件推进强度；移除临时子弹 Buff 掉落后，成长更线性可预期。",
+      "weaponTitle": "武器系统",
+      "weaponDesc": "武器基础值 + 弹种 + 附件 +（可选）技能短效统一结算，查看最终面板更直观。",
+      "stageTitle": "关卡提示",
+      "stageDesc": "关卡掉落包含武器、附件、材料与货币，不再投放临时弹药强化。"
+    },
     "endless": "无尽模式",
     "progression": "养成模式",
     "chapters": "关卡",
@@ -28,7 +39,43 @@
     "upgradeX5": "升级×5",
     "sell": "回收",
     "price": "价格",
-    "insufficient": "金币不足"
+    "insufficient": "金币不足",
+    "startGame": "开始游戏",
+    "openSettings": "设置",
+    "resetDefaults": "恢复默认",
+    "resetConfirm": "确定将所有设置恢复为默认值？",
+    "resetDone": "已恢复默认设置。",
+    "tip": "提示：可在“设置”中调整特效质量与屏幕震动。",
+      "continue": "继续游戏",
+      "openSaves": "存档",
+      "mode": "模式",
+      "difficulty": "难度"
+    },
+  "saves": {
+    "title": "存档槽",
+    "empty": "还没有存档。",
+    "wave": "波次",
+    "score": "分数",
+    "hp": "生命",
+    "continue": "继续",
+    "delete": "删除",
+    "deleteConfirm": "确定删除该存档？",
+    "clearAll": "清空全部",
+    "clearConfirm": "确定清空所有存档？",
+    "close": "关闭",
+    "unnamed": "未命名",
+    "autoName": "存档 {time}",
+    "renameAria": "重命名存档",
+    "mode": {
+      "endless": "无尽",
+      "growth": "养成"
+    },
+    "difficulty": {
+      "easy": "简单",
+      "normal": "普通",
+      "hard": "困难",
+      "hell": "地狱"
+    }
   },
   "chap": {
     "1-1": "第一章 · 绿地外围",

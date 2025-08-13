@@ -1,6 +1,17 @@
 {
   "home": {
-    "title": "Zombie Breakout",
+    "title": "Welcome back to Command",
+    "subtitle": "Start your progression and stage runs. Temporary bullet buffs are merged into the weapon & mod system for stable growth.",
+    "cta": { "start": "Play" },
+    "theme": { "dark": "Dark Mode", "light": "Light Mode" },
+    "panels": {
+      "progressionTitle": "Progression",
+      "progressionDesc": "Grow via weapons and mods from loot. With temporary bullet buffs removed, pacing is smoother and predictable.",
+      "weaponTitle": "Weapon System",
+      "weaponDesc": "Weapon base + ammo + mods + optional short skill are unified into one pipeline. Check the final sheet clearly.",
+      "stageTitle": "Stage Tips",
+      "stageDesc": "Stages drop weapons, mods, materials, and currency. No more temporary ammo buffs."
+    },
     "endless": "Endless",
     "progression": "Progression",
     "chapters": "Chapters",
@@ -25,7 +36,43 @@
     "upgradeX5": "Upgrade ×5",
     "sell": "Sell",
     "price": "Price",
-    "insufficient": "Insufficient funds"
+    "insufficient": "Insufficient funds",
+    "startGame": "Start Game",
+    "openSettings": "Settings",
+    "resetDefaults": "Reset to Defaults",
+    "resetConfirm": "Reset all settings to defaults?",
+    "resetDone": "Settings reset.",
+    "tip": "Tip: You can change graphics and screen shake in Settings.",
+      "continue": "Continue",
+      "openSaves": "Saves",
+      "mode": "Mode",
+      "difficulty": "Difficulty"
+    },
+  "saves": {
+    "title": "Save Slots",
+    "empty": "No saves yet.",
+    "wave": "Wave",
+    "score": "Score",
+    "hp": "HP",
+    "continue": "Continue",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this save?",
+    "clearAll": "Clear All",
+    "clearConfirm": "Delete all saves?",
+    "close": "Close",
+    "unnamed": "Unnamed",
+    "autoName": "Save {time}",
+    "renameAria": "Rename save",
+    "mode": {
+      "endless": "Endless",
+      "growth": "Growth"
+    },
+    "difficulty": {
+      "easy": "Easy",
+      "normal": "Normal",
+      "hard": "Hard",
+      "hell": "Hell"
+    }
   },
   "chap": {
     "1-1": "Chapter 1 · Green Outskirts",
