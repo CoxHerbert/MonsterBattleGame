@@ -47,7 +47,7 @@ export default class BulletFactory {
     const p = this.s.player;
     const stats = this.s.weapon.stats;
     const tickDmg = this._calcDamage(stats.tickDmg);
-    const dps = tickDmg / stats.tick;
+    const dps = (tickDmg / stats.tick) * (this.s.diffProfile?.weapon?.beamDpsMul || 1.0);
     this.s.bulletSys.emitBeam({
       x: p.x,
       y: p.y,
@@ -64,6 +64,7 @@ export default class BulletFactory {
     let dmg = base + (p.damage || 0);
     const crit = Math.random() < (p.critRate || 0);
     if (crit) dmg *= 2.0;
-    return dmg;
+    const wmul = this.s.diffProfile?.weapon?.bulletDmgMul || 1.0;
+    return dmg * wmul;
   }
 }
