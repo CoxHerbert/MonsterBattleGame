@@ -4,24 +4,6 @@ on:
     push:
         branches: ['main']
     workflow_dispatch:
-        inputs:
-            node:
-                description: 'Node version'
-                required: false
-                default: '20'
-            buildScript:
-                description: 'Build script (package.json scripts)'
-                required: false
-                default: 'build'
-            cleanInstall:
-                description: 'Clean install (npm ci) or npm i'
-                type: boolean
-                required: false
-                default: true
-            distDir:
-                description: 'Build output directory'
-                required: false
-                default: 'dist'
 
 permissions:
     contents: read
@@ -37,42 +19,42 @@ jobs:
         runs-on: ubuntu-latest
         env:
             GITHUB_PAGES: 'true' # 让 Vite 的 base 动态生效
-            DIST_DIR: ${{ inputs.distDir || 'dist' }}
         steps:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Setup Node
+            - name: Setup Node (pin exact to satisfy engines)
               uses: actions/setup-node@v4
               with:
-                  node-version: ${{ inputs.node || '20' }}
+                  node-version: '20.19.0' # or '22.12.0'
                   cache: npm
 
-            - name: Install deps
-              if: ${{ inputs.cleanInstall != 'false' && inputs.cleanInstall != false }}
-              run: npm ci
-            - name: Install deps (npm i fallback)
-              if: ${{ inputs.cleanInstall == 'false' || inputs.cleanInstall == false }}
-              run: npm i
+            - name: Install deps (lock-aware)
+              run: |
+                  if [ -f package-lock.json ]; then
+                    npm ci
+                  else
+                    echo "No package-lock.json, using npm i"
+                    npm i
+                  fi
 
             - name: Configure GitHub Pages
               uses: actions/configure-pages@v5
 
             - name: Build
-              run: npm run ${{ inputs.buildScript || 'build' }}
+              run: npm run build
 
+            # SPA 路由直达不 404（官方允许自定义 404 页）
             - name: SPA fallback
-              run: |
-                  cp "$DIST_DIR/index.html" "$DIST_DIR/404.html" || true
+              run: cp dist/index.html dist/404.html || true
 
             - name: Add .nojekyll
-              run: |
-                  touch "$DIST_DIR/.nojekyll"
+              run: touch dist/.nojekyll
 
             - name: Upload artifact
               uses: actions/upload-pages-artifact@v3
               with:
-                  path: ${{ env.DIST_DIR }}
+                  path: ./dist
 
     deploy:
         needs: build
