@@ -46,7 +46,20 @@
     "deleteConfirm": "Delete this save?",
     "clearAll": "Clear All",
     "clearConfirm": "Delete all saves?",
-    "close": "Close"
+    "close": "Close",
+    "unnamed": "Unnamed",
+    "autoName": "Save {time}",
+    "renameAria": "Rename save",
+    "mode": {
+      "endless": "Endless",
+      "growth": "Growth"
+    },
+    "difficulty": {
+      "easy": "Easy",
+      "normal": "Normal",
+      "hard": "Hard",
+      "hell": "Hell"
+    }
   },
   "chap": {
     "1-1": "Chapter 1 · Green Outskirts",

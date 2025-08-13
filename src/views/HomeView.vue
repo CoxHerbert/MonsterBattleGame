@@ -89,6 +89,7 @@
           @delete="deleteById"
           @clearAll="clearAll"
           @close="closeSaves"
+          @rename="renameById"
         />
       </div>
     </div>
@@ -272,6 +273,14 @@ export default {
       const ok = window.confirm(this.$t('saves.deleteConfirm'))
       if (!ok) return
       const arr = this.saves.filter(s => String(s.id) !== String(id))
+      this.saves = arr
+      localStorage.setItem('saves', JSON.stringify(arr))
+    },
+    renameById({ id, name }){
+      const arr = this.saves.slice()
+      const i = arr.findIndex(s => String(s.id) === String(id))
+      if (i === -1) return
+      arr[i] = { ...arr[i], name: String(name).trim() || arr[i].name }
       this.saves = arr
       localStorage.setItem('saves', JSON.stringify(arr))
     },

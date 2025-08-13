@@ -739,9 +739,23 @@ export default {
 
     saveAndExit() {
       const saves = JSON.parse(localStorage.getItem('saves') || '[]');
+
+      // —— 自动命名（YYYY-MM-DD HH:mm）——
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      const autoName = this.$t ? this.$t('saves.autoName', { time: stamp }) : `Save ${stamp}`;
+
+      // —— 从 store/路由兜底读取 gameMode & difficulty ——
+      const gameMode = (this.$store?.state?.game?.mode) || (this.$route?.query?.mode) || 'endless';
+      const difficulty = (this.$store?.state?.game?.difficulty) || (this.$route?.query?.difficulty) || 'normal';
+
       const id = Date.now();
       saves.push({
         id,
+        name: autoName,
+        difficulty,
+        gameMode,
         state: {
           player: { x: this.player.x, y: this.player.y, hp: this.player.hp },
           wave: this.wave,
@@ -751,6 +765,7 @@ export default {
         },
         time: Date.now()
       });
+
       localStorage.setItem('saves', JSON.stringify(saves));
       this.$router.push('/');
     },
