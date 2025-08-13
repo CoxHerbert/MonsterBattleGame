@@ -1,170 +1,142 @@
 <template>
-  <div class="home">
-    <h1 class="title">Top-Down Shooter</h1>
-
-    <!-- ★ 开局选择器 -->
-    <div class="selectors">
-      <div class="sel">
-        <label>{{ $t('home.mode') }}</label>
-        <select :value="mode" @change="setMode($event.target.value)">
-          <option value="endless">{{ $t('saves.mode.endless') }}</option>
-          <option value="growth">{{ $t('saves.mode.growth') }}</option>
-        </select>
+  <main class="home">
+    <section class="hero">
+      <h1>{{ t('home.title') }}</h1>
+      <p class="subtitle">
+        {{ t('home.subtitle') }}
+      </p>
+      <div class="cta">
+        <RouterLink class="btn" :to="{ name: 'game' }">
+          {{ t('home.cta.start') }}
+        </RouterLink>
+        <button class="btn ghost" @click="toggleTheme">
+          {{ themeLabel }}
+        </button>
       </div>
-      <div class="sel">
-        <label>{{ $t('home.difficulty') }}</label>
-        <select :value="difficulty" @change="setDifficulty($event.target.value)">
-          <option value="easy">{{ $t('saves.difficulty.easy') }}</option>
-          <option value="normal">{{ $t('saves.difficulty.normal') }}</option>
-          <option value="hard">{{ $t('saves.difficulty.hard') }}</option>
-          <option value="hell">{{ $t('saves.difficulty.hell') }}</option>
-        </select>
-      </div>
-    </div>
+    </section>
 
-    <div class="actions">
-      <button class="btn primary" @click="startNew">
-        {{ $t('home.startGame') }}
-      </button>
-
-      <button class="btn" :disabled="!latestSave" @click="continueLatest">
-        {{ $t('home.continue') }}
-      </button>
-
-      <button class="btn" @click="openSaves">
-        {{ $t('home.openSaves') }}
-      </button>
-
-      <button class="btn" @click="openSettings">
-        {{ $t('home.openSettings') }}
-      </button>
-
-      <button class="btn ghost" @click="confirmReset">
-        {{ $t('home.resetDefaults') }}
-      </button>
-    </div>
-
-    <!-- 设置面板 -->
-    <div v-if="settingsOpen" class="modal" @click.self="closeSettings">
-      <div class="modal-body">
-        <SettingsPanel :showRestart="false" :allowSave="false" @close="closeSettings" />
-      </div>
-    </div>
-
-    <!-- 存档面板 -->
-    <div v-if="savesOpen" class="modal" @click.self="closeSaves">
-      <div class="modal-body">
-        <SavesPanel
-          :saves="saves"
-          @continue="continueById"
-          @delete="deleteById"
-          @clearAll="clearAll"
-          @close="closeSaves"
-          @rename="renameById"
-        />
-      </div>
-    </div>
-
-    <p class="hint">{{ $t('home.tip') }}</p>
-  </div>
+    <section class="panels">
+      <article class="panel">
+        <h2>{{ t('home.panels.progressionTitle') }}</h2>
+        <p class="muted">
+          {{ t('home.panels.progressionDesc') }}
+        </p>
+      </article>
+      <article class="panel">
+        <h2>{{ t('home.panels.weaponTitle') }}</h2>
+        <p class="muted">
+          {{ t('home.panels.weaponDesc') }}
+        </p>
+      </article>
+      <article class="panel">
+        <h2>{{ t('home.panels.stageTitle') }}</h2>
+        <p class="muted">
+          {{ t('home.panels.stageDesc') }}
+        </p>
+      </article>
+    </section>
+  </main>
 </template>
 
-<script>
-import SettingsPanel from '@/components/SettingsPanel.vue'
-import SavesPanel from '@/components/SavesPanel.vue'
+<script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+import { onMounted, computed } from 'vue'
 
-export default {
-  name: 'HomeView',
-  components: { SettingsPanel, SavesPanel },
-  data(){
-    return { settingsOpen:false, savesOpen:false, saves:[] }
-  },
-  computed:{
-    mode(){ return this.$store.state.game.mode; },
-    difficulty(){ return this.$store.state.game.difficulty; },
-    latestSave(){
-      if (!this.saves.length) return null;
-      return this.saves.slice().sort((a,b)=>b.time - a.time)[0];
-    }
-  },
-  mounted(){ this.loadSaves(); },
-  methods: {
-    // —— 选择器 —— //
-    setMode(v){ this.$store.commit('game/setMode', v); },
-    setDifficulty(v){ this.$store.commit('game/setDifficulty', v); },
-    startNew(){
-      this.$router.push({ name:'game', query:{ mode:this.mode, difficulty:this.difficulty } });
-    },
+const { t } = useI18n()
 
-    // —— 设置 —— //
-    openSettings(){ this.settingsOpen = true; },
-    closeSettings(){ this.settingsOpen = false; },
-    confirmReset(){
-      const ok = window.confirm(this.$t('home.resetConfirm'));
-      if (ok){ this.$store.commit('resetSettings'); }
-    },
+const isDark = computed(() => document.documentElement.classList.contains('dark'))
+const themeLabel = computed(() => isDark.value ? t('home.theme.light') : t('home.theme.dark'))
 
-    // —— 存档 —— //
-    openSaves(){ this.savesOpen = true; },
-    closeSaves(){ this.savesOpen = false; },
-    loadSaves(){
-      try{
-        const arr = JSON.parse(localStorage.getItem('saves') || '[]');
-        this.saves = Array.isArray(arr) ? arr.sort((a,b)=>b.time - a.time) : [];
-      }catch(e){ this.saves = []; }
-    },
-    continueLatest(){
-      if (!this.latestSave) return;
-      this.$router.push({ name:'game', query:{ save:String(this.latestSave.id) } });
-    },
-    continueById(id){
-      this.$router.push({ name:'game', query:{ save:String(id) } });
-    },
-    deleteById(id){
-      const ok = window.confirm(this.$t('saves.deleteConfirm'));
-      if (!ok) return;
-      const arr = this.saves.filter(s => String(s.id) !== String(id));
-      this.saves = arr;
-      localStorage.setItem('saves', JSON.stringify(arr));
-    },
-    clearAll(){
-      const ok = window.confirm(this.$t('saves.clearConfirm'));
-      if (!ok) return;
-      this.saves = [];
-      localStorage.setItem('saves', '[]');
-    },
-    renameById({ id, name }){
-      const arr = this.saves.slice();
-      const i = arr.findIndex(s => String(s.id) === String(id));
-      if (i === -1) return;
-      arr[i] = { ...arr[i], name: String(name).trim() || arr[i].name };
-      this.saves = arr;
-      localStorage.setItem('saves', JSON.stringify(arr));
-    }
-  }
+function toggleTheme() {
+  document.documentElement.classList.toggle('dark')
+  localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light')
 }
+
+onMounted(() => {
+  const saved = localStorage.getItem('theme')
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+  const nextDark = saved ? saved === 'dark' : prefersDark
+  document.documentElement.classList.toggle('dark', nextDark)
+})
 </script>
 
 <style scoped>
-.home{
-  min-height: 100dvh; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  background: radial-gradient(60% 60% at 50% 40%, #0f1320, #0b0e16 60%, #080a12);
-  color:#e6f0ff; text-align:center; padding:20px;
+.home {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: var(--space-4);
 }
-.title{ font: 800 42px/1.1 ui-sans-serif, system-ui; margin: 0 0 18px; }
-.selectors{
-  display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin: 6px 0 10px;
+
+.hero {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: clamp(1.25rem, 2vw + 1rem, 2rem);
+  box-shadow: var(--shadow);
 }
-.sel{ display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.04); border:1px solid #2a3346; padding:8px 10px; border-radius:10px; }
-.sel label{ color:#cfe3ff; font-size:14px; }
-.sel select{ background:#0f1320; color:#e6f0ff; border:1px solid #2a3346; border-radius:8px; padding:4px 8px; }
-.actions{ display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin: 6px 0 18px; }
-.btn{ background:#1f2937; color:#e5e7eb; border:1px solid #2a3346; padding:10px 16px; border-radius:12px; cursor:pointer; }
-.btn:hover{ filter:brightness(1.08); }
-.btn.primary{ background:#2563eb; border-color:#1d4ed8; color:white; }
-.btn.ghost{ background:transparent; }
-.btn:disabled{ opacity:.5; cursor:not-allowed; }
-.modal{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:50; }
-.modal-body{ background:#0f1320; border:1px solid #2a3346; border-radius:12px; padding:14px; width:min(820px, 94vw); }
-.hint{ opacity:.7; margin-top: 8px; font-size: 14px; }
+
+.hero h1 {
+  font-size: clamp(1.6rem, 2.2vw + 1rem, 2.2rem);
+  line-height: 1.25;
+  margin: 0 0 var(--space-2);
+  color: var(--text-1); /* 主标题高可读，但不刺眼 */
+  font-weight: 700;
+}
+
+.subtitle {
+  color: var(--text-2); /* 次级文字更柔和 */
+  margin: 0 0 var(--space-3);
+  max-width: 56ch;
+}
+
+.cta {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--accent-soft);  /* 轻强调，不强对比 */
+  color: var(--text-1);
+  box-shadow: var(--shadow);
+  transition: transform .08s ease, box-shadow .2s ease, background .2s ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+
+.btn.ghost {
+  background: transparent;
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  box-shadow: var(--shadow);
+}
+
+.panel h2 {
+  margin: 0 0 .5rem;
+  font-size: 1.05rem;
+  color: var(--text-1);
+}
+.panel .muted {
+  color: var(--text-3);
+  line-height: 1.6;
+}
 </style>

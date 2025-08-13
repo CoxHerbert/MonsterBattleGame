@@ -1,6 +1,17 @@
 {
   "home": {
-    "title": "僵尸突围",
+    "title": "欢迎回到指挥中心",
+    "subtitle": "开始你的养成与关卡挑战。我们已将临时子弹增益整合为武器与附件系统，体验更稳定可控的成长路线。",
+    "cta": { "start": "开始游戏" },
+    "theme": { "dark": "切换到暗色", "light": "切换到浅色" },
+    "panels": {
+      "progressionTitle": "养成进度",
+      "progressionDesc": "通过关卡掉落的武器与附件推进强度；移除临时子弹 Buff 掉落后，成长更线性可预期。",
+      "weaponTitle": "武器系统",
+      "weaponDesc": "武器基础值 + 弹种 + 附件 +（可选）技能短效统一结算，查看最终面板更直观。",
+      "stageTitle": "关卡提示",
+      "stageDesc": "关卡掉落包含武器、附件、材料与货币，不再投放临时弹药强化。"
+    },
     "endless": "无尽模式",
     "progression": "养成模式",
     "chapters": "关卡",

@@ -1,6 +1,17 @@
 {
   "home": {
-    "title": "Zombie Breakout",
+    "title": "Welcome back to Command",
+    "subtitle": "Start your progression and stage runs. Temporary bullet buffs are merged into the weapon & mod system for stable growth.",
+    "cta": { "start": "Play" },
+    "theme": { "dark": "Dark Mode", "light": "Light Mode" },
+    "panels": {
+      "progressionTitle": "Progression",
+      "progressionDesc": "Grow via weapons and mods from loot. With temporary bullet buffs removed, pacing is smoother and predictable.",
+      "weaponTitle": "Weapon System",
+      "weaponDesc": "Weapon base + ammo + mods + optional short skill are unified into one pipeline. Check the final sheet clearly.",
+      "stageTitle": "Stage Tips",
+      "stageDesc": "Stages drop weapons, mods, materials, and currency. No more temporary ammo buffs."
+    },
     "endless": "Endless",
     "progression": "Progression",
     "chapters": "Chapters",

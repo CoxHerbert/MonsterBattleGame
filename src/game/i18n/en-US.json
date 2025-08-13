@@ -6,4 +6,16 @@
   "mod.ExtMag": "Extended Magazine",
   "mod.LongBarrel": "Long Barrel",
   "mod.ShockPerk": "Shock Mod"
+,
+  "home.title": "Welcome back to Command",
+  "home.subtitle": "Start your progression and stage runs. Temporary bullet buffs are merged into the weapon & mod system for stable growth.",
+  "home.cta.start": "Play",
+  "home.theme.dark": "Dark Mode",
+  "home.theme.light": "Light Mode",
+  "home.panels.progressionTitle": "Progression",
+  "home.panels.progressionDesc": "Grow via weapons and mods from loot. With temporary bullet buffs removed, pacing is smoother and predictable.",
+  "home.panels.weaponTitle": "Weapon System",
+  "home.panels.weaponDesc": "Weapon base + ammo + mods + optional short skill are unified into one pipeline. Check the final sheet clearly.",
+  "home.panels.stageTitle": "Stage Tips",
+  "home.panels.stageDesc": "Stages drop weapons, mods, materials, and currency. No more temporary ammo buffs."
 }
