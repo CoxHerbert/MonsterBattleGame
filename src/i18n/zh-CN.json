@@ -34,7 +34,22 @@
     "resetDefaults": "恢复默认",
     "resetConfirm": "确定将所有设置恢复为默认值？",
     "resetDone": "已恢复默认设置。",
-    "tip": "提示：可在“设置”中调整特效质量与屏幕震动。"
+    "tip": "提示：可在“设置”中调整特效质量与屏幕震动。",
+    "continue": "继续游戏",
+    "openSaves": "存档"
+  },
+  "saves": {
+    "title": "存档槽",
+    "empty": "还没有存档。",
+    "wave": "波次",
+    "score": "分数",
+    "hp": "生命",
+    "continue": "继续",
+    "delete": "删除",
+    "deleteConfirm": "确定删除该存档？",
+    "clearAll": "清空全部",
+    "clearConfirm": "确定清空所有存档？",
+    "close": "关闭"
   },
   "chap": {
     "1-1": "第一章 · 绿地外围",

@@ -53,6 +53,12 @@
     <footer class="bottom">
       <LoadoutPanel v-if="mode==='PROGRESSION'" :loadout="loadout" :inventory="meta.inventory" @change="loadout=$event" />
       <div class="actions">
+        <button class="btn" :disabled="!latestSave" @click="continueLatest">
+          {{ $t('home.continue') }}
+        </button>
+        <button class="btn" @click="openSaves">
+          {{ $t('home.openSaves') }}
+        </button>
         <button class="btn" @click="openSettings">
           {{ $t('home.openSettings') }}
         </button>
@@ -75,6 +81,18 @@
       </div>
     </div>
 
+    <div v-if="savesOpen" class="modal" @click.self="closeSaves">
+      <div class="modal-body">
+        <SavesPanel
+          :saves="saves"
+          @continue="continueById"
+          @delete="deleteById"
+          @clearAll="clearAll"
+          @close="closeSaves"
+        />
+      </div>
+    </div>
+
     <p class="hint">{{ $t('home.tip') }}</p>
   </div>
 </template>
@@ -89,6 +107,7 @@ import ShopPanel from '@/components/home/ShopPanel.vue'
 import LoadoutPanel from '@/components/home/LoadoutPanel.vue'
 import ArmoryPanel from '@/components/home/ArmoryPanel.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
+import SavesPanel from '@/components/SavesPanel.vue'
 
 import modes from '@/game/config/modes.config.js'
 import metaCfg from '@/game/config/meta.config.js'
@@ -100,7 +119,7 @@ const save = new SaveSystem()
 
 export default {
   name: 'HomeView',
-  components: { CurrencyBar, ModeCard, Tabs, ChapterGrid, TalentTree, ShopPanel, LoadoutPanel, ArmoryPanel, SettingsPanel },
+  components: { CurrencyBar, ModeCard, Tabs, ChapterGrid, TalentTree, ShopPanel, LoadoutPanel, ArmoryPanel, SettingsPanel, SavesPanel },
   data(){ return {
     mode: null,
     chapterId: null,
@@ -116,15 +135,22 @@ export default {
     chapters: modes.PROGRESSION.chapters,
     prices: econ.prices,
     loadout: { weaponId: 'mg', perks: [] },
-    settingsOpen: false
+    settingsOpen: false,
+    savesOpen: false,
+    saves: []
   }},
   computed:{
     canStart(){
       if (!this.mode) return false
       if (this.mode==='PROGRESSION' && !this.chapterId) return false
       return true
+    },
+    latestSave(){
+      if (!this.saves.length) return null
+      return this.saves.slice().sort((a,b)=>b.time - a.time)[0]
     }
   },
+  mounted(){ this.loadSaves() },
   methods:{
     selectMode(m){
       this.mode = m
@@ -223,8 +249,37 @@ export default {
     openSettings(){ this.settingsOpen = true; },
     closeSettings(){ this.settingsOpen = false; },
     confirmReset(){
-      const ok = window.confirm(this.$t('home.resetConfirm'));
-      if (ok) this.$store.commit('resetSettings');
+      const ok = window.confirm(this.$t('home.resetConfirm'))
+      if (ok) this.$store.commit('resetSettings')
+    },
+    // —— 存档 —— //
+    openSaves(){ this.savesOpen = true },
+    closeSaves(){ this.savesOpen = false },
+    loadSaves(){
+      try{
+        const arr = JSON.parse(localStorage.getItem('saves') || '[]')
+        this.saves = Array.isArray(arr) ? arr.sort((a,b)=>b.time - a.time) : []
+      }catch(e){ this.saves = [] }
+    },
+    continueLatest(){
+      if (!this.latestSave) return
+      this.$router.push({ name:'game', query:{ save:String(this.latestSave.id) } })
+    },
+    continueById(id){
+      this.$router.push({ name:'game', query:{ save:String(id) } })
+    },
+    deleteById(id){
+      const ok = window.confirm(this.$t('saves.deleteConfirm'))
+      if (!ok) return
+      const arr = this.saves.filter(s => String(s.id) !== String(id))
+      this.saves = arr
+      localStorage.setItem('saves', JSON.stringify(arr))
+    },
+    clearAll(){
+      const ok = window.confirm(this.$t('saves.clearConfirm'))
+      if (!ok) return
+      this.saves = []
+      localStorage.setItem('saves', '[]')
     },
     onArmoryEquipSkin({ weaponId, skinId }){
       const inv = this.meta.inventory.weapons[weaponId]; if (!inv?.owned) return;
@@ -252,9 +307,10 @@ export default {
 .actions{ display:flex; align-items:center; gap:8px; }
 .btn{ background:#1f2937; color:#e5e7eb; border:0; border-radius:10px; padding:8px 12px; cursor:pointer; }
 .btn.ghost{ background:transparent; border:1px solid #2a3346; }
+.btn:disabled{ opacity:.5; cursor:not-allowed; }
 .cta{ background:#2563eb; color:#fff; border:0; border-radius:10px; padding:10px 18px; cursor:pointer; }
 .cta:disabled{ opacity:.5; cursor:not-allowed; }
 .modal{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:50; }
-.modal-body{ background:#0f1320; border:1px solid #2a3346; border-radius:12px; padding:14px; width:min(720px, 94vw); }
+.modal-body{ background:#0f1320; border:1px solid #2a3346; border-radius:12px; padding:14px; width:min(820px, 94vw); }
 .hint{ opacity:.7; margin-top:8px; font-size:14px; text-align:center; }
 </style>

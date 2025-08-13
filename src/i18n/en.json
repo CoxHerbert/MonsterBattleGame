@@ -31,7 +31,22 @@
     "resetDefaults": "Reset to Defaults",
     "resetConfirm": "Reset all settings to defaults?",
     "resetDone": "Settings reset.",
-    "tip": "Tip: You can change graphics and screen shake in Settings."
+    "tip": "Tip: You can change graphics and screen shake in Settings.",
+    "continue": "Continue",
+    "openSaves": "Saves"
+  },
+  "saves": {
+    "title": "Save Slots",
+    "empty": "No saves yet.",
+    "wave": "Wave",
+    "score": "Score",
+    "hp": "HP",
+    "continue": "Continue",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this save?",
+    "clearAll": "Clear All",
+    "clearConfirm": "Delete all saves?",
+    "close": "Close"
   },
   "chap": {
     "1-1": "Chapter 1 · Green Outskirts",
