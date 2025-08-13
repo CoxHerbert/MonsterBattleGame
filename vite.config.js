@@ -1,19 +1,13 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-// https://vite.dev/config/
+const isPages = process.env.GITHUB_PAGES === 'true'
+const repo = process.env.GITHUB_REPOSITORY?.split('/')[1] ?? ''
+const base = isPages && !repo.endsWith('.github.io') ? `/${repo}/` : '/'
+
 export default defineConfig({
   plugins: [vue()],
-  
-  server: {
-    host: '0.0.0.0', // 或者直接写你的本机局域网IP
-    port: 5173,      // 可自定义端口
-    open: true       // 启动后自动打开浏览器
-  },
-  resolve: {
-    alias: {
-      '@': '/src',
-      'vuex': '/src/simple-vuex.js'
-    }
-  }
+  base,
+  server: { host: '0.0.0.0', port: 5173, open: true },
+  resolve: { alias: { '@': '/src', 'vuex': '/src/simple-vuex.js' } }
 })
