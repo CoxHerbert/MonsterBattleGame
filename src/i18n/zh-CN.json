@@ -28,7 +28,13 @@
     "upgradeX5": "升级×5",
     "sell": "回收",
     "price": "价格",
-    "insufficient": "金币不足"
+    "insufficient": "金币不足",
+    "startGame": "开始游戏",
+    "openSettings": "设置",
+    "resetDefaults": "恢复默认",
+    "resetConfirm": "确定将所有设置恢复为默认值？",
+    "resetDone": "已恢复默认设置。",
+    "tip": "提示：可在“设置”中调整特效质量与屏幕震动。"
   },
   "chap": {
     "1-1": "第一章 · 绿地外围",

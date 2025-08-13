@@ -1,49 +1,46 @@
 import { createStore } from 'vuex'
+import { createPersistSettingsPlugin, loadSettingsFromStorage } from './plugins/persistSettings'
 
-const VOL_KEY = 'zombie-volume'
-const MUTE_KEY = 'zombie-muted'
-const BGM_KEY = 'zombie-bgm'
-
-const volume = Number(localStorage.getItem(VOL_KEY))
-const muted = localStorage.getItem(MUTE_KEY) === '1'
-const bgmSaved = localStorage.getItem(BGM_KEY)
+// 统一默认值（新增的 effectsQuality 与 screenShake 在这）
+const DEFAULT_SETTINGS = {
+  volume: 0.8,
+  muted: false,
+  bgmOn: true,
+  minimapOpen: true,
+  minimapAlerts: true,
+  minimapSize: 'medium',
+  telegraphOn: true,
+  effectsQuality: 'high',   // 'high' | 'low'
+  screenShake: true         // 是否启用屏幕震动
+};
 
 export default createStore({
-  state: () => ({
-    settings: {
-      volume: Number.isNaN(volume) ? 0.8 : volume,
-      muted,
-      bgmOn: bgmSaved === null ? true : bgmSaved === '1',
-      minimapOpen: true,
-      minimapAlerts: true,
-      minimapSize: 'medium',
-      telegraphOn: true,
-      effectsQuality: 'high',
-      screenShake: true
-    }
-  }),
+  state: {
+    settings: loadSettingsFromStorage(DEFAULT_SETTINGS)
+  },
   mutations: {
-    setVolume(state, v) {
-      state.settings.volume = v
-      localStorage.setItem(VOL_KEY, String(v))
-    },
-    setMuted(state, v) {
-      state.settings.muted = v
-      localStorage.setItem(MUTE_KEY, v ? '1' : '0')
-    },
-    setBgmOn(state, v) {
-      state.settings.bgmOn = v
-      localStorage.setItem(BGM_KEY, v ? '1' : '0')
-    },
-    setMinimapOpen(state, v) { state.settings.minimapOpen = v },
-    setMinimapAlerts(state, v) { state.settings.minimapAlerts = v },
-    setMinimapSize(state, v) { state.settings.minimapSize = v },
-    setTelegraphOn(state, v) { state.settings.telegraphOn = v },
-    setEffectsQuality(state, v) {
-      state.settings.effectsQuality = v === 'low' ? 'low' : 'high'
-    },
-    setScreenShake(state, v) {
-      state.settings.screenShake = !!v
+    setVolume(state, v){ state.settings.volume = Number(v); },
+    setMuted(state, v){ state.settings.muted = !!v; },
+    setBgmOn(state, v){ state.settings.bgmOn = !!v; },
+    setMinimapOpen(state, v){ state.settings.minimapOpen = !!v; },
+    setMinimapAlerts(state, v){ state.settings.minimapAlerts = !!v; },
+    setMinimapSize(state, v){ state.settings.minimapSize = String(v); },
+    setTelegraphOn(state, v){ state.settings.telegraphOn = !!v; },
+
+    // 新增：特效质量 & 屏幕震动
+    setEffectsQuality(state, v){ state.settings.effectsQuality = (v === 'low' ? 'low' : 'high'); },
+    setScreenShake(state, v){ state.settings.screenShake = !!v; },
+
+    // 一键恢复默认
+    resetSettings(state){
+      state.settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
     }
-  }
-})
+  },
+  actions: {
+    // （可选）在 App 启动时再次确保合并到最新默认
+    hydrateSettings({ state }){
+      state.settings = loadSettingsFromStorage(DEFAULT_SETTINGS);
+    }
+  },
+  plugins: [ createPersistSettingsPlugin() ]
+});

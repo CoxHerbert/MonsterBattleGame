@@ -52,10 +52,30 @@
 
     <footer class="bottom">
       <LoadoutPanel v-if="mode==='PROGRESSION'" :loadout="loadout" :inventory="meta.inventory" @change="loadout=$event" />
-      <button class="cta" :disabled="!canStart" @click="startGame">
-        开始游戏
-      </button>
+      <div class="actions">
+        <button class="btn" @click="openSettings">
+          {{ $t('home.openSettings') }}
+        </button>
+        <button class="btn ghost" @click="confirmReset">
+          {{ $t('home.resetDefaults') }}
+        </button>
+        <button class="cta" :disabled="!canStart" @click="startGame">
+          {{ $t('home.startGame') }}
+        </button>
+      </div>
     </footer>
+
+    <div v-if="settingsOpen" class="modal" @click.self="closeSettings">
+      <div class="modal-body">
+        <SettingsPanel
+          :showRestart="false"
+          :allowSave="false"
+          @close="closeSettings"
+        />
+      </div>
+    </div>
+
+    <p class="hint">{{ $t('home.tip') }}</p>
   </div>
 </template>
 
@@ -68,6 +88,7 @@ import TalentTree from '@/components/home/TalentTree.vue'
 import ShopPanel from '@/components/home/ShopPanel.vue'
 import LoadoutPanel from '@/components/home/LoadoutPanel.vue'
 import ArmoryPanel from '@/components/home/ArmoryPanel.vue'
+import SettingsPanel from '@/components/SettingsPanel.vue'
 
 import modes from '@/game/config/modes.config.js'
 import metaCfg from '@/game/config/meta.config.js'
@@ -79,7 +100,7 @@ const save = new SaveSystem()
 
 export default {
   name: 'HomeView',
-  components: { CurrencyBar, ModeCard, Tabs, ChapterGrid, TalentTree, ShopPanel, LoadoutPanel, ArmoryPanel },
+  components: { CurrencyBar, ModeCard, Tabs, ChapterGrid, TalentTree, ShopPanel, LoadoutPanel, ArmoryPanel, SettingsPanel },
   data(){ return {
     mode: null,
     chapterId: null,
@@ -94,7 +115,8 @@ export default {
     trees: metaCfg.trees,
     chapters: modes.PROGRESSION.chapters,
     prices: econ.prices,
-    loadout: { weaponId: 'mg', perks: [] }
+    loadout: { weaponId: 'mg', perks: [] },
+    settingsOpen: false
   }},
   computed:{
     canStart(){
@@ -198,6 +220,12 @@ export default {
       this.meta.soft += refund;
       save.saveMeta(this.meta);
     },
+    openSettings(){ this.settingsOpen = true; },
+    closeSettings(){ this.settingsOpen = false; },
+    confirmReset(){
+      const ok = window.confirm(this.$t('home.resetConfirm'));
+      if (ok) this.$store.commit('resetSettings');
+    },
     onArmoryEquipSkin({ weaponId, skinId }){
       const inv = this.meta.inventory.weapons[weaponId]; if (!inv?.owned) return;
       if (!inv.skins.owned.includes(skinId)) return;
@@ -221,6 +249,12 @@ export default {
 .modes{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin:12px 0 16px; }
 .panels{ background:#11161d; border:1px solid #1e2835; border-radius:12px; padding:12px; }
 .bottom{ display:flex; align-items:center; justify-content:space-between; margin-top:16px; }
+.actions{ display:flex; align-items:center; gap:8px; }
+.btn{ background:#1f2937; color:#e5e7eb; border:0; border-radius:10px; padding:8px 12px; cursor:pointer; }
+.btn.ghost{ background:transparent; border:1px solid #2a3346; }
 .cta{ background:#2563eb; color:#fff; border:0; border-radius:10px; padding:10px 18px; cursor:pointer; }
 .cta:disabled{ opacity:.5; cursor:not-allowed; }
+.modal{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:50; }
+.modal-body{ background:#0f1320; border:1px solid #2a3346; border-radius:12px; padding:14px; width:min(720px, 94vw); }
+.hint{ opacity:.7; margin-top:8px; font-size:14px; text-align:center; }
 </style>

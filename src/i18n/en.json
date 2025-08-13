@@ -25,7 +25,13 @@
     "upgradeX5": "Upgrade ×5",
     "sell": "Sell",
     "price": "Price",
-    "insufficient": "Insufficient funds"
+    "insufficient": "Insufficient funds",
+    "startGame": "Start Game",
+    "openSettings": "Settings",
+    "resetDefaults": "Reset to Defaults",
+    "resetConfirm": "Reset all settings to defaults?",
+    "resetDone": "Settings reset.",
+    "tip": "Tip: You can change graphics and screen shake in Settings."
   },
   "chap": {
     "1-1": "Chapter 1 · Green Outskirts",
